@@ -8,7 +8,6 @@
 #![deny(missing_docs)]
 
 use crate::applicable_declarations::ApplicableDeclarationBlock;
-#[cfg(feature = "gecko")]
 use crate::context::UpdateAnimationsTasks;
 use crate::context::{SharedStyleContext, TreeCountingCaches};
 use crate::data::{ElementData, ElementDataMut, ElementDataRef};
@@ -769,6 +768,40 @@ pub trait TElement:
         before_change_style: Option<Arc<ComputedValues>>,
         tasks: UpdateAnimationsTasks,
     );
+
+    /// Whether the embedder runs this element's CSS animations itself, as Gecko does: the traversal then leaves them
+    /// to `update_animations` tasks rather than running them in the shared `DocumentAnimationSet`, and reads their
+    /// values through `animation_rule` / `pseudo_animation_declarations`.
+    #[cfg(feature = "servo")]
+    fn runs_css_animations(&self) -> bool {
+        false
+    }
+
+    /// Creates a task to update various animation state on this element or one of its pseudo-elements — only ever
+    /// asked of an element whose embedder `runs_css_animations`.
+    #[cfg(feature = "servo")]
+    fn update_animations(
+        &self,
+        _pseudo: Option<PseudoElement>,
+        _before_change_style: Option<Arc<ComputedValues>>,
+        _tasks: UpdateAnimationsTasks,
+    ) {
+    }
+
+    /// The animation and transition rules of one of this element's pseudo-elements.
+    #[cfg(feature = "servo")]
+    fn pseudo_animation_declarations(
+        &self,
+        context: &SharedStyleContext,
+        pseudo: &PseudoElement,
+    ) -> AnimationDeclarations {
+        use crate::animation::AnimationSetKey;
+        context.animations.get_all_declarations(
+            &AnimationSetKey::new_for_pseudo(self.as_node().opaque(), pseudo.clone()),
+            context.current_time_for_animations,
+            self.as_node().owner_doc().shared_lock(),
+        )
+    }
 
     /// Returns true if the element has relevant animations. Relevant
     /// animations are those animations that are affecting the element's style

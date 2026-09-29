@@ -33,7 +33,8 @@ use euclid::Scale;
 use rustc_hash::FxHashMap;
 use selectors::context::SelectorCaches;
 use selectors::OpaqueElement;
-#[cfg(feature = "gecko")]
+#[cfg(feature = "servo")]
+use crate::selector_parser::PseudoElement;
 use servo_arc::Arc;
 use std::fmt;
 use std::ops;
@@ -435,13 +436,26 @@ bitflags! {
     }
 }
 
+#[cfg(feature = "servo")]
+bitflags! {
+    /// Represents which tasks are performed in a SequentialTask of UpdateAnimations which is a result of normal
+    /// restyle — for an embedder that runs the element's animations itself, as Gecko does (see
+    /// `TElement::update_animations`).
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    pub struct UpdateAnimationsTasks: u8 {
+        /// Update CSS Animations.
+        const CSS_ANIMATIONS = 1 << 0;
+        /// Update CSS Transitions.
+        const CSS_TRANSITIONS = 1 << 1;
+        /// Update effect properties: what the element's keyframes compute to may have changed.
+        const EFFECT_PROPERTIES = 1 << 2;
+    }
+}
+
 /// A task to be run in sequential mode on the parent (non-worker) thread. This
 /// is used by the style system to queue up work which is not safe to do during
 /// the parallel traversal.
 pub enum SequentialTask<E: TElement> {
-    /// Entry to avoid an unused type parameter error on servo.
-    Unused(SendElement<E>),
-
     /// Performs one of a number of possible tasks related to updating
     /// animations based on the |tasks| field. These include updating CSS
     /// animations/transitions that changed as part of the non-animation style
@@ -457,6 +471,20 @@ pub enum SequentialTask<E: TElement> {
         /// The tasks which are performed in this SequentialTask.
         tasks: UpdateAnimationsTasks,
     },
+
+    /// Performs one of a number of possible tasks related to updating animations, for an embedder that runs them
+    /// itself: the servo counterpart of Gecko's, where a pseudo-element is not an element of its own.
+    #[cfg(feature = "servo")]
+    UpdateAnimations {
+        /// The originating element.
+        el: SendElement<E>,
+        /// The pseudo-element whose animations these are, if any.
+        pseudo: Option<PseudoElement>,
+        /// The before-change style for transitions.
+        before_change_style: Option<Arc<ComputedValues>>,
+        /// The tasks which are performed in this SequentialTask.
+        tasks: UpdateAnimationsTasks,
+    },
 }
 
 impl<E: TElement> SequentialTask<E> {
@@ -465,7 +493,6 @@ impl<E: TElement> SequentialTask<E> {
         use self::SequentialTask::*;
         debug_assert!(thread_state::get().contains(ThreadState::LAYOUT));
         match self {
-            Unused(_) => unreachable!(),
             #[cfg(feature = "gecko")]
             UpdateAnimations {
                 el,
@@ -473,6 +500,15 @@ impl<E: TElement> SequentialTask<E> {
                 tasks,
             } => {
                 el.update_animations(before_change_style, tasks);
+            },
+            #[cfg(feature = "servo")]
+            UpdateAnimations {
+                el,
+                pseudo,
+                before_change_style,
+                tasks,
+            } => {
+                el.update_animations(pseudo, before_change_style, tasks);
             },
         }
     }
@@ -488,6 +524,26 @@ impl<E: TElement> SequentialTask<E> {
         use self::SequentialTask::*;
         UpdateAnimations {
             el: unsafe { SendElement::new(el) },
+            before_change_style,
+            tasks,
+        }
+    }
+}
+
+/// A task to update the animations of an element or one of its pseudo-elements, for an embedder that runs them
+/// itself.
+#[cfg(feature = "servo")]
+impl<E: TElement> SequentialTask<E> {
+    /// Creates a task to update various animation-related state on a given element or pseudo-element.
+    pub fn update_animations(
+        el: E,
+        pseudo: Option<PseudoElement>,
+        before_change_style: Option<Arc<ComputedValues>>,
+        tasks: UpdateAnimationsTasks,
+    ) -> Self {
+        SequentialTask::UpdateAnimations {
+            el: unsafe { SendElement::new(el) },
+            pseudo,
             before_change_style,
             tasks,
         }

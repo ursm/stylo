@@ -1009,7 +1009,9 @@ impl FontSize {
                     }
                 },
             };
-        let size = NonNegative(Self::quantize_font_size(size));
+        // (…quantized for Gecko's font-instance economy only: the computed size is the size, as Chrome and the spec have
+        // it — a 13.3px font stays 13.3px, where quantizing made it 13.296875.)
+        let size = NonNegative(if cfg!(feature = "gecko") { Self::quantize_font_size(size) } else { size });
         computed::FontSize {
             computed_size: size,
             used_size: size,

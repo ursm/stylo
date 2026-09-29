@@ -645,12 +645,6 @@ impl CalcLengthPercentage {
         &self.node
     }
 
-    /// The range the resolved value is clamped to.
-    #[inline]
-    pub fn clamping_mode(&self) -> AllowedNumericType {
-        self.clamping_mode
-    }
-
     /// Resolves the percentage.
     #[inline]
     pub fn resolve(&self, basis: Length) -> Length {

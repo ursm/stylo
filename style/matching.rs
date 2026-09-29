@@ -633,15 +633,18 @@ trait PrivateMatchMethods: TElement {
                     .animations
                     .cancel_all_animations_for_key(&key);
                 // (…and an embedder's, which it cancels finding the pseudo-element gone.)
+                let pseudo = Some(pseudo_element.clone());
                 if self.runs_css_animations() &&
-                    self.has_css_animations(context.shared, Some(pseudo_element.clone()))
+                    (self.has_css_animations(context.shared, pseudo.clone()) ||
+                        self.has_css_transitions(context.shared, pseudo.clone()))
                 {
                     use crate::context::{SequentialTask, UpdateAnimationsTasks};
                     let task = SequentialTask::update_animations(
                         *self,
-                        Some(pseudo_element),
+                        pseudo,
                         None,
-                        UpdateAnimationsTasks::CSS_ANIMATIONS,
+                        None,
+                        UpdateAnimationsTasks::CSS_ANIMATIONS | UpdateAnimationsTasks::CSS_TRANSITIONS,
                     );
                     context.thread_local.tasks.push(task);
                 }
@@ -763,22 +766,36 @@ trait PrivateMatchMethods: TElement {
             after_change_style = self.after_change_style(context, new_values);
         }
 
-        // An embedder that runs the CSS animations itself is told what to update, once the traversal is over, as
-        // Gecko is: the animations to build from the new style, and the keyframes to compute again for it. (The
-        // transitions still run here.)
+        // An embedder that runs the CSS animations and transitions itself is told what to update, once the traversal
+        // is over, as Gecko is: the animations to build from the new style, the transitions to start or cancel from
+        // the before-change style to the after-change one, and the keyframes to compute again. Their values reach the
+        // style through its rules; nothing here is the embedder's.
         if embedder_runs_animations {
             use crate::context::{SequentialTask, UpdateAnimationsTasks};
             let mut tasks = UpdateAnimationsTasks::empty();
             if needs_animations_update {
                 tasks.insert(UpdateAnimationsTasks::CSS_ANIMATIONS);
             }
+            let (before_change_style, after_change_style) = if might_need_transitions_update {
+                tasks.insert(UpdateAnimationsTasks::CSS_TRANSITIONS);
+                (old_values.clone(), Some(after_change_style.unwrap_or_else(|| new_values.clone())))
+            } else {
+                (None, None)
+            };
             if pseudo_element.is_none() && self.has_animations(context.shared) {
                 tasks.insert(UpdateAnimationsTasks::EFFECT_PROPERTIES);
             }
             if !tasks.is_empty() {
-                let task = SequentialTask::update_animations(*self, pseudo_element.clone(), None, tasks);
+                let task = SequentialTask::update_animations(
+                    *self,
+                    pseudo_element,
+                    before_change_style,
+                    after_change_style,
+                    tasks,
+                );
                 context.thread_local.tasks.push(task);
             }
+            return false;
         }
 
         let key = AnimationSetKey::new(self.as_node().opaque(), pseudo_element);
@@ -790,8 +807,7 @@ trait PrivateMatchMethods: TElement {
             .remove(&key)
             .unwrap_or_default();
 
-        let parent_moved = !embedder_runs_animations &&
-            !animation_set.animations.is_empty() &&
+        let parent_moved = !animation_set.animations.is_empty() &&
             !match (&animation_set.keyframes_parent, &parent) {
                 (Some(a), Some(b)) => Arc::ptr_eq(a, b),
                 (a, b) => a.is_none() && b.is_none(),
@@ -802,7 +818,7 @@ trait PrivateMatchMethods: TElement {
         // being cascaded again below — and nothing starts until it is rendered again.
         if new_values.get_box().clone_display().is_none() {
             animation_set.cancel_all_animations();
-        } else if !embedder_runs_animations && (needs_animations_update || parent_moved) {
+        } else if needs_animations_update || parent_moved {
             // Starting animations is expensive, because we have to recalculate the style
             // for all the keyframes. We only want to do this if we think that there's a
             // chance that the animations really changed.

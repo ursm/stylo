@@ -480,8 +480,12 @@ pub enum SequentialTask<E: TElement> {
         el: SendElement<E>,
         /// The pseudo-element whose animations these are, if any.
         pseudo: Option<PseudoElement>,
-        /// The before-change style for transitions.
+        /// The before-change style for transitions: the style as of the previous style change event. Required if
+        /// |tasks| includes CSSTransitions.
         before_change_style: Option<Arc<ComputedValues>>,
+        /// The after-change style for transitions: the new style without the transitions' values. Required if
+        /// |tasks| includes CSSTransitions.
+        after_change_style: Option<Arc<ComputedValues>>,
         /// The tasks which are performed in this SequentialTask.
         tasks: UpdateAnimationsTasks,
     },
@@ -506,9 +510,10 @@ impl<E: TElement> SequentialTask<E> {
                 el,
                 pseudo,
                 before_change_style,
+                after_change_style,
                 tasks,
             } => {
-                el.update_animations(pseudo, before_change_style, tasks);
+                el.update_animations(pseudo, before_change_style, after_change_style, tasks);
             },
         }
     }
@@ -539,12 +544,14 @@ impl<E: TElement> SequentialTask<E> {
         el: E,
         pseudo: Option<PseudoElement>,
         before_change_style: Option<Arc<ComputedValues>>,
+        after_change_style: Option<Arc<ComputedValues>>,
         tasks: UpdateAnimationsTasks,
     ) -> Self {
         SequentialTask::UpdateAnimations {
             el: unsafe { SendElement::new(el) },
             pseudo,
             before_change_style,
+            after_change_style,
             tasks,
         }
     }

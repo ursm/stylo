@@ -769,9 +769,9 @@ pub trait TElement:
         tasks: UpdateAnimationsTasks,
     );
 
-    /// Whether the embedder runs this element's CSS animations itself, as Gecko does: the traversal then leaves them
-    /// to `update_animations` tasks rather than running them in the shared `DocumentAnimationSet`, and reads their
-    /// values through `animation_rule` / `pseudo_animation_declarations`.
+    /// Whether the embedder runs this element's CSS animations and transitions itself, as Gecko does: the traversal then
+    /// leaves them to `update_animations` tasks rather than running them in the shared `DocumentAnimationSet`, and
+    /// reads their values through `animation_rule` / `transition_rule` / `pseudo_animation_declarations`.
     #[cfg(feature = "servo")]
     fn runs_css_animations(&self) -> bool {
         false
@@ -784,6 +784,7 @@ pub trait TElement:
         &self,
         _pseudo: Option<PseudoElement>,
         _before_change_style: Option<Arc<ComputedValues>>,
+        _after_change_style: Option<Arc<ComputedValues>>,
         _tasks: UpdateAnimationsTasks,
     ) {
     }

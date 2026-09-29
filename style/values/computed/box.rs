@@ -63,7 +63,8 @@ impl Animate for LineClamp {
 /// A computed value for the `perspective` property.
 pub type Perspective = GenericPerspective<NonNegativeLength>;
 
-/// A computed value for the `resize` property.
+/// A computed value for the `resize` property: as specified, a flow-relative value included (css-ui-4; the axis it
+/// names is the used value's to resolve).
 #[allow(missing_docs)]
 #[derive(
     Clone,
@@ -86,41 +87,22 @@ pub enum Resize {
     Both,
     Horizontal,
     Vertical,
+    Inline,
+    Block,
 }
 
 impl ToComputedValue for specified::Resize {
     type ComputedValue = Resize;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Resize {
-        let is_vertical = context.style().writing_mode.is_vertical();
+    fn to_computed_value(&self, _context: &Context) -> Resize {
         match self {
-            specified::Resize::Inline => {
-                context
-                    .rule_cache_conditions
-                    .borrow_mut()
-                    .set_writing_mode_dependency(context.builder.writing_mode);
-                if is_vertical {
-                    Resize::Vertical
-                } else {
-                    Resize::Horizontal
-                }
-            },
-            specified::Resize::Block => {
-                context
-                    .rule_cache_conditions
-                    .borrow_mut()
-                    .set_writing_mode_dependency(context.builder.writing_mode);
-                if is_vertical {
-                    Resize::Horizontal
-                } else {
-                    Resize::Vertical
-                }
-            },
             specified::Resize::None => Resize::None,
             specified::Resize::Both => Resize::Both,
             specified::Resize::Horizontal => Resize::Horizontal,
             specified::Resize::Vertical => Resize::Vertical,
+            specified::Resize::Inline => Resize::Inline,
+            specified::Resize::Block => Resize::Block,
         }
     }
 
@@ -131,6 +113,8 @@ impl ToComputedValue for specified::Resize {
             Resize::Both => specified::Resize::Both,
             Resize::Horizontal => specified::Resize::Horizontal,
             Resize::Vertical => specified::Resize::Vertical,
+            Resize::Inline => specified::Resize::Inline,
+            Resize::Block => specified::Resize::Block,
         }
     }
 }

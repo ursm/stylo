@@ -166,6 +166,10 @@ bitflags! {
         /// (https://html.spec.whatwg.org/multipage/rendering.html#the-select-element-2). The size is the attribute
         /// PARSED as a non-negative integer, which no attribute selector can say. Servo's own, for its UA sheet.
         const SERVO_LIST_BOX = 1u64 << 62;
+        /// A `<table>` whose `border` attribute maps to a non-zero width, whose cells the UA sheet frames
+        /// (https://html.spec.whatwg.org/multipage/rendering.html#tables-2). A state bit rather than a live
+        /// read, so that a `border` write invalidates through the element's state snapshot. Servo's own.
+        const SERVO_NONZERO_BORDER = 1u64 << 63;
 
         /// Some convenience unions.
         const DIR_STATES = Self::LTR.bits() | Self::RTL.bits();

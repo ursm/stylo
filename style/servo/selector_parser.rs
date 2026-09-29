@@ -527,6 +527,7 @@ impl NonTSPseudoClass {
             Self::PlaceholderShown => ElementState::PLACEHOLDER_SHOWN,
             Self::PopoverOpen => ElementState::POPOVER_OPEN,
             Self::ServoListBox => ElementState::SERVO_LIST_BOX,
+            Self::ServoNonZeroBorder => ElementState::SERVO_NONZERO_BORDER,
             Self::ReadOnly => ElementState::READONLY,
             Self::ReadWrite => ElementState::READWRITE,
             Self::Required => ElementState::REQUIRED,
@@ -535,7 +536,7 @@ impl NonTSPseudoClass {
             Self::UserValid => ElementState::USER_VALID,
             Self::Valid => ElementState::VALID,
             Self::Visited => ElementState::VISITED,
-            Self::CustomState(_) | Self::Lang(_) | Self::ServoNonZeroBorder => {
+            Self::CustomState(_) | Self::Lang(_) => {
                 ElementState::empty()
             },
         }

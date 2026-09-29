@@ -638,6 +638,19 @@ impl From<&CalcAnchorSide> for AnchorSide {
 }
 
 impl CalcLengthPercentage {
+    /// The calc tree, for an embedder that lowers it into an expression of its own (a layout engine evaluating it at
+    /// the basis it has).
+    #[inline]
+    pub fn node(&self) -> &CalcNode {
+        &self.node
+    }
+
+    /// The range the resolved value is clamped to.
+    #[inline]
+    pub fn clamping_mode(&self) -> AllowedNumericType {
+        self.clamping_mode
+    }
+
     /// Resolves the percentage.
     #[inline]
     pub fn resolve(&self, basis: Length) -> Length {

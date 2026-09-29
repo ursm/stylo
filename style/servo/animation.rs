@@ -654,6 +654,11 @@ impl Animation {
         self.iterate_by(1.) == 1.
     }
 
+    /// Whether the time has reached this animation's start (its delay run), to the clock's precision.
+    pub fn has_started(&self, time: f64) -> bool {
+        time + BOUNDARY_TOLERANCE >= self.started_at
+    }
+
     /// Given the current time, advances this running animation to the iteration that time is in, in one step however
     /// many iteration boundaries lie between (a tiny duration crosses millions), toggling its direction as those
     /// iterations do. Returns true if this animation has iterated.
@@ -823,7 +828,7 @@ impl Animation {
                 }
                 self.iterate_by(progress);
                 // Don't check old_state when delay changed: where the animation is now is the new delay's to say.
-                if self.state == Pending && self.started_at <= now {
+                if self.state == Pending && self.has_started(now) {
                     self.state = Running;
                     if self.has_ended(now) {
                         self.state = Finished;
@@ -871,7 +876,7 @@ impl Animation {
 
             // Try to detect when we should skip straight to the running phase to
             // avoid sending multiple animationstart events.
-            if self.state == Pending && self.started_at <= now && old_state != Pending {
+            if self.state == Pending && self.has_started(now) && old_state != Pending {
                 self.state = Running;
             }
         }
@@ -1198,6 +1203,11 @@ impl Transition {
     /// canceled due to changes in the style.
     pub fn has_ended(&self, time: f64) -> bool {
         time + BOUNDARY_TOLERANCE >= self.start_time + (self.property_animation.duration)
+    }
+
+    /// Whether the time has reached this transition's start (its delay run), to the clock's precision.
+    pub fn has_started(&self, time: f64) -> bool {
+        time + BOUNDARY_TOLERANCE >= self.start_time
     }
 
     /// Update the given animation at a given point of progress.

@@ -474,6 +474,24 @@ impl AnimationValue {
         })
     }
 
+    /// Whether two styles share the style struct `property` lives in, and so hold the same value of it — a question
+    /// asked without extracting either value, as a transition asks it of every property `transition: all` names. False
+    /// says nothing: the values may still be equal.
+    pub fn same_in(property: PropertyDeclarationId, a: &ComputedValues, b: &ComputedValues) -> bool {
+        let PropertyDeclarationId::Longhand(id) = property else { return false };
+        match id {
+            % for prop in data.longhands:
+            % if prop.animatable and not prop.logical:
+            LonghandId::${prop.camel_case} => std::ptr::eq(
+                a.get_${prop.style_struct.name_lower}(),
+                b.get_${prop.style_struct.name_lower}(),
+            ),
+            % endif
+            % endfor
+            _ => false,
+        }
+    }
+
     /// Update `style` with the value of this `AnimationValue`.
     ///
     /// SERVO ONLY: This doesn't properly handle things like updating 'em' units

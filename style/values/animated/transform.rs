@@ -1198,16 +1198,23 @@ impl Animate for ComputedTransformOperation {
 impl ComputedTransformOperation {
     /// If there are no size dependencies, we try to animate in-place, to avoid
     /// creating deeply nested Interpolate* operations.
+    ///
+    /// Two lists that resolve to matrices without a reference box are settled here: their matrices
+    /// interpolate, or — where one cannot be decomposed — the pair does not interpolate at all, and
+    /// the caller falls back to discrete as css-transforms-2 §10 says. Only a list that needs the
+    /// box to resolve (a percentage) is deferred as an Interpolate* / Accumulate* operation.
     fn try_animate_mismatched_transforms_in_place(
         left: &[Self],
         right: &[Self],
         procedure: Procedure,
-    ) -> Result<Self, ()> {
-        let (left, _left_3d) = Transform::components_to_transform_3d_matrix(left, None)?;
-        let (right, _right_3d) = Transform::components_to_transform_3d_matrix(right, None)?;
-        Ok(Self::Matrix3D(
-            Matrix3D::from(left).animate(&Matrix3D::from(right), procedure)?,
-        ))
+    ) -> Option<Result<Self, ()>> {
+        let (Ok((left, _)), Ok((right, _))) = (
+            Transform::components_to_transform_3d_matrix(left, None),
+            Transform::components_to_transform_3d_matrix(right, None),
+        ) else {
+            return None;
+        };
+        Some(Matrix3D::from(left).animate(&Matrix3D::from(right), procedure).map(Self::Matrix3D))
     }
 
     fn animate_mismatched_transforms(
@@ -1215,8 +1222,8 @@ impl ComputedTransformOperation {
         right: &[Self],
         procedure: Procedure,
     ) -> Result<Self, ()> {
-        if let Ok(op) = Self::try_animate_mismatched_transforms_in_place(left, right, procedure) {
-            return Ok(op);
+        if let Some(result) = Self::try_animate_mismatched_transforms_in_place(left, right, procedure) {
+            return result;
         }
         let from_list = Transform(left.to_vec().into());
         let to_list = Transform(right.to_vec().into());

@@ -771,10 +771,14 @@ trait PrivateMatchMethods: TElement {
             };
         animation_set.keyframes_parent = parent;
 
-        // Starting animations is expensive, because we have to recalculate the style
-        // for all the keyframes. We only want to do this if we think that there's a
-        // chance that the animations really changed.
-        if needs_animations_update || parent_moved {
+        // An element that is not rendered runs nothing: what it was running is canceled — its values go with it,
+        // being cascaded again below — and nothing starts until it is rendered again.
+        if new_values.get_box().clone_display().is_none() {
+            animation_set.cancel_all_animations();
+        } else if needs_animations_update || parent_moved {
+            // Starting animations is expensive, because we have to recalculate the style
+            // for all the keyframes. We only want to do this if we think that there's a
+            // chance that the animations really changed.
             let mut resolver = StyleResolverForElement::new(
                 *self,
                 context,

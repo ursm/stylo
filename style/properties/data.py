@@ -283,7 +283,8 @@ class Keyword(object):
         if engine == "gecko":
             return self.values + self.extra_gecko_values
         elif engine == "servo":
-            return self.values + self.extra_servo_values
+            # (csim) Servo builds take the keywords Gecko builds do: what the web can write is not the engine's.
+            return self.values + self.extra_gecko_values + [v for v in self.extra_servo_values if v not in self.extra_gecko_values]
         else:
             raise Exception("Bad engine: " + engine)
 
@@ -291,7 +292,7 @@ class Keyword(object):
         if engine == "gecko":
             return self.gecko_aliases
         elif engine == "servo":
-            return self.servo_aliases
+            return {**self.gecko_aliases, **self.servo_aliases}
         else:
             raise Exception("Bad engine: " + engine)
 

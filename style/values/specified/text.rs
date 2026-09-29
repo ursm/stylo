@@ -868,7 +868,6 @@ pub enum WordBreak {
     ///
     /// Specifying `word-break: break-word` makes `overflow-wrap` behave as
     /// `anywhere`, and `word-break` behave like `normal`.
-    #[cfg(feature = "gecko")]
     BreakWord,
 }
 

@@ -614,9 +614,12 @@ fn iterations_between(from: f64, to: f64, duration: f64) -> f64 {
     }
 }
 
-/// How close to a boundary a time has to be to be at it: times are kept in single precision here (`0.2s` is
-/// 0.20000000298…), and the page's clock in microseconds.
-const BOUNDARY_TOLERANCE: f64 = 1e-6;
+/// How close to a boundary a time has to be to be at it, for an animation whose durations and delay add up to
+/// `span` seconds: those are kept in single precision here (`0.2s` is 0.20000000298…), so a boundary is off by up to
+/// their single-precision error — and never less than the page's clock's microsecond.
+fn boundary_tolerance(span: f64) -> f64 {
+    (span.abs() * f32::EPSILON as f64).max(1e-6)
+}
 
 /// The time `progress` iterations of `duration` seconds take — none for a zero duration, whatever the progress (a
 /// paused one's is infinite once it is over).
@@ -656,7 +659,15 @@ impl Animation {
 
     /// Whether the time has reached this animation's start (its delay run), to the clock's precision.
     pub fn has_started(&self, time: f64) -> bool {
-        time + BOUNDARY_TOLERANCE >= self.started_at
+        time + self.tolerance() >= self.started_at
+    }
+
+    /// (`boundary_tolerance` over its delay and the iterations it has run.)
+    fn tolerance(&self) -> f64 {
+        let iterations = match self.iteration_state {
+            KeyframesIterationState::Finite(current, _) | KeyframesIterationState::Infinite(current) => current,
+        };
+        boundary_tolerance(self.delay.abs() + (iterations + 1.) * self.duration)
     }
 
     /// Given the current time, advances this running animation to the iteration that time is in, in one step however
@@ -669,7 +680,7 @@ impl Animation {
             if self.state != AnimationState::Running || !self.iteration_over(time) {
                 break;
             }
-            let iterations = iterations_between(self.started_at, time + BOUNDARY_TOLERANCE, self.duration);
+            let iterations = iterations_between(self.started_at, time + self.tolerance(), self.duration);
             if self.iterate_by(iterations.max(1.)) == 0. {
                 break;
             }
@@ -746,7 +757,7 @@ impl Animation {
     /// the animation is still running.
     fn iteration_over(&self, time: f64) -> bool {
         // (At its end exactly, the next one has begun: the value is its first keyframe's.)
-        time + BOUNDARY_TOLERANCE >= self.started_at + self.current_iteration_duration()
+        time + self.tolerance() >= self.started_at + self.current_iteration_duration()
     }
 
     /// Assuming this animation is running, whether or not it is on the last iteration.
@@ -765,7 +776,7 @@ impl Animation {
         let progress = match self.state {
             AnimationState::Finished => return true,
             AnimationState::Paused(progress) => progress,
-            AnimationState::Running => iterations_between(self.started_at, time + BOUNDARY_TOLERANCE, self.duration),
+            AnimationState::Running => iterations_between(self.started_at, time + self.tolerance(), self.duration),
             AnimationState::Pending | AnimationState::Canceled => return false,
         };
 
@@ -893,8 +904,14 @@ impl Animation {
         // Raw progress ratio of the animation: can be negative (before start) or
         // >1.0 (after end or during multiple iterations).
         let progress = match self.state {
+            // (…a start the state calls reached, within its tolerance, being reached for the value too.)
             AnimationState::Running | AnimationState::Pending | AnimationState::Finished => {
-                iterations_between(self.started_at, now, self.duration)
+                let progress = iterations_between(self.started_at, now, self.duration);
+                if progress < 0. && self.started_at - now <= self.tolerance() {
+                    0.
+                } else {
+                    progress
+                }
             },
             AnimationState::Paused(progress) => progress,
             AnimationState::Canceled => return,
@@ -1202,12 +1219,17 @@ impl Transition {
     /// not take into account canceling i.e. when an animation or transition is
     /// canceled due to changes in the style.
     pub fn has_ended(&self, time: f64) -> bool {
-        time + BOUNDARY_TOLERANCE >= self.start_time + (self.property_animation.duration)
+        time + self.tolerance() >= self.start_time + (self.property_animation.duration)
+    }
+
+    /// (`boundary_tolerance` over its delay and duration.)
+    fn tolerance(&self) -> f64 {
+        boundary_tolerance(self.delay.abs() + self.property_animation.duration)
     }
 
     /// Whether the time has reached this transition's start (its delay run), to the clock's precision.
     pub fn has_started(&self, time: f64) -> bool {
-        time + BOUNDARY_TOLERANCE >= self.start_time
+        time + self.tolerance() >= self.start_time
     }
 
     /// Update the given animation at a given point of progress.

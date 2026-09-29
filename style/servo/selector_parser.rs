@@ -398,6 +398,7 @@ pub enum NonTSPseudoClass {
     ReadOnly,
     ReadWrite,
     Required,
+    ServoListBox,
     ServoNonZeroBorder,
     Target,
     UserInvalid,
@@ -482,6 +483,7 @@ impl ToCss for NonTSPseudoClass {
             Self::ReadOnly => ":read-only",
             Self::ReadWrite => ":read-write",
             Self::Required => ":required",
+            Self::ServoListBox => ":-servo-list-box",
             Self::ServoNonZeroBorder => ":-servo-nonzero-border",
             Self::Target => ":target",
             Self::UserInvalid => ":user-invalid",
@@ -524,6 +526,7 @@ impl NonTSPseudoClass {
             Self::OutOfRange => ElementState::OUTOFRANGE,
             Self::PlaceholderShown => ElementState::PLACEHOLDER_SHOWN,
             Self::PopoverOpen => ElementState::POPOVER_OPEN,
+            Self::ServoListBox => ElementState::SERVO_LIST_BOX,
             Self::ReadOnly => ElementState::READONLY,
             Self::ReadWrite => ElementState::READWRITE,
             Self::Required => ElementState::REQUIRED,
@@ -657,6 +660,14 @@ impl<'a, 'i> ::selectors::Parser<'i> for SelectorParser<'a> {
             "-moz-meter-optimum" => NonTSPseudoClass::MozMeterOptimum,
             "-moz-meter-sub-optimum" => NonTSPseudoClass::MozMeterSubOptimum,
             "-moz-meter-sub-sub-optimum" => NonTSPseudoClass::MozMeterSubSubOptimum,
+            "-servo-list-box" => {
+                if !self.in_user_agent_stylesheet() {
+                    return Err(location.new_custom_error(
+                        SelectorParseErrorKind::UnexpectedIdent("-servo-list-box".into())
+                    ))
+                }
+                NonTSPseudoClass::ServoListBox
+            },
             "-servo-nonzero-border" => {
                 if !self.in_user_agent_stylesheet() {
                     return Err(location.new_custom_error(

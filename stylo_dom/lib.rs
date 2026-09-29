@@ -162,6 +162,10 @@ bitflags! {
         const HEADING_LEVEL_BITS = 0b1111u64 << HEADING_LEVEL_OFFSET;
         /// https://w3c.github.io/picture-in-picture/#css-pseudo-class
         const PICTURE_IN_PICTURE = 1u64 << 61;
+        /// A `<select>` shown as a list box rather than a drop-down: one with `multiple`, or a display size above 1
+        /// (https://html.spec.whatwg.org/multipage/rendering.html#the-select-element-2). The size is the attribute
+        /// PARSED as a non-negative integer, which no attribute selector can say. Servo's own, for its UA sheet.
+        const SERVO_LIST_BOX = 1u64 << 62;
 
         /// Some convenience unions.
         const DIR_STATES = Self::LTR.bits() | Self::RTL.bits();

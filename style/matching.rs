@@ -717,15 +717,31 @@ trait PrivateMatchMethods: TElement {
         // We need to call this before accessing the `ElementAnimationSet` from the
         // map because this call will do a RwLock::read().
         //
-        // An element's animations have their keyframes' values computed again whenever it is restyled, as Gecko's
-        // EFFECT_PROPERTIES task does: they may depend on its font size, on what it inherits, on its custom
-        // properties.
+        // An element's animations have their keyframes' values computed again when what those values can depend on
+        // changed, as Gecko's EFFECT_PROPERTIES task does: the rules, its own font (`em`), writing mode (logical
+        // properties), custom properties (`var()`) and color (`currentColor`) — and, below, the style it inherits from
+        // (`inherit`).
+        let own_inputs_changed = |old: &ComputedValues| {
+            context.shared.traversal_flags.contains(TraversalFlags::ForCSSRuleChanges) ||
+                old.writing_mode != new_values.writing_mode ||
+                old.custom_properties() != new_values.custom_properties() ||
+                old.get_font() != new_values.get_font() ||
+                old.get_inherited_text() != new_values.get_inherited_text()
+        };
         let needs_animations_update = self.needs_animations_update(
             context,
             old_values.as_deref(),
             new_values,
             pseudo_element,
-        ) || (old_values.is_some() && self.has_css_animations(context.shared, pseudo_element));
+        ) || (old_values.as_deref().is_some_and(own_inputs_changed) &&
+            self.has_css_animations(context.shared, pseudo_element));
+        // (A pseudo-element inherits from the style its element is taking now, which is its element's to look at.)
+        let parent = match pseudo_element {
+            None => self
+                .inheritance_parent()
+                .and_then(|parent| parent.borrow_data().and_then(|data| data.styles.get_primary().cloned())),
+            Some(_) => None,
+        };
 
         let might_need_transitions_update = self.might_need_transitions_update(
             context,
@@ -748,10 +764,17 @@ trait PrivateMatchMethods: TElement {
             .remove(&key)
             .unwrap_or_default();
 
+        let parent_moved = !animation_set.animations.is_empty() &&
+            !match (&animation_set.keyframes_parent, &parent) {
+                (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                (a, b) => a.is_none() && b.is_none(),
+            };
+        animation_set.keyframes_parent = parent;
+
         // Starting animations is expensive, because we have to recalculate the style
         // for all the keyframes. We only want to do this if we think that there's a
         // chance that the animations really changed.
-        if needs_animations_update {
+        if needs_animations_update || parent_moved {
             let mut resolver = StyleResolverForElement::new(
                 *self,
                 context,

@@ -601,19 +601,27 @@ pub struct Animation {
     pub is_new: bool,
 }
 
+/// How many iterations of `duration` seconds lie between the times `from` and `to` — for a zero duration, all of them
+/// once `to` is reached (its iterations are over the moment they start), and none before.
+fn iterations_between(from: f64, to: f64, duration: f64) -> f64 {
+    let elapsed = to - from;
+    if duration > 0. {
+        elapsed / duration
+    } else if elapsed >= 0. {
+        f64::INFINITY
+    } else {
+        f64::NEG_INFINITY
+    }
+}
+
 impl Animation {
     /// Whether or not this animation is cancelled by changes from a new style.
     fn is_cancelled_in_new_style(&self, new_style: &Arc<ComputedValues>) -> bool {
-        let new_ui = new_style.get_ui();
-        let index = new_ui
+        // (…which a zero duration is not: such an animation runs in an instant.)
+        !new_style
+            .get_ui()
             .animation_name_iter()
-            .position(|animation_name| Some(&self.name) == animation_name.as_atom());
-        let index = match index {
-            Some(index) => index,
-            None => return true,
-        };
-
-        new_ui.animation_duration_mod(index).seconds() == 0.
+            .any(|animation_name| Some(&self.name) == animation_name.as_atom())
     }
 
     /// Given the current time, advances this animation to the next iteration,
@@ -630,6 +638,16 @@ impl Animation {
         }
 
         self.iterate_by(1.) == 1.
+    }
+
+    /// Given the current time, advances this running animation to the iteration that time is in, in one step however
+    /// many iteration boundaries lie between (a tiny duration crosses millions), toggling its direction as those
+    /// iterations do. Returns true if this animation has iterated.
+    pub fn iterate_to(&mut self, time: f64) -> bool {
+        if self.state != AnimationState::Running || !self.iteration_over(time) {
+            return false;
+        }
+        self.iterate_by(iterations_between(self.started_at, time, self.duration).max(1.)) > 0.
     }
 
     /// Attempts to advance this animation by `n` iterations, but stops when reaching
@@ -718,7 +736,7 @@ impl Animation {
         let progress = match self.state {
             AnimationState::Finished => return true,
             AnimationState::Paused(progress) => progress,
-            AnimationState::Running => (time - self.started_at) / self.duration,
+            AnimationState::Running => iterations_between(self.started_at, time, self.duration),
             AnimationState::Pending | AnimationState::Canceled => return false,
         };
 
@@ -756,49 +774,37 @@ impl Animation {
         self.is_new = old_is_new;
 
         if self.delay != old_delay {
-            // `started_at` incorporates the delay, so changing the delay necessarily changes `started_at`.
-            // Note: `started_at` may actually be in the future.
-            self.started_at = old_started_at + (self.delay - old_delay);
-
-            match old_state {
-                Paused(old_progress) => {
-                    let mut progress = old_progress + (old_delay - self.delay) / self.duration;
-                    progress -= self.iterate_by(progress);
-                    self.state = Paused(progress);
-                },
-                Finished => {
-                    if self.has_ended(now) {
-                        self.state = Finished;
-                    } else if self.started_at <= now {
-                        self.state = Running;
-                    } else {
-                        self.state = Pending;
-                    }
-                },
-                Canceled | Pending | Running => {
-                    // Re-advance iterations from a fresh iteration state: `started_at` is where the CURRENT
-                    // iteration began, so it goes back to where the first did, in the direction the first ran.
-                    let old_current = match old_iteration_state {
-                        KeyframesIterationState::Finite(current, _) |
-                        KeyframesIterationState::Infinite(current) => current,
-                    };
-                    self.started_at -= old_current * old_duration;
-                    self.current_direction = other.current_direction;
-                    let new_starting_progress = (now - self.started_at) / self.duration;
-                    match self.iteration_state {
-                        KeyframesIterationState::Finite(ref mut current, _) |
-                        KeyframesIterationState::Infinite(ref mut current) => *current = 0.0,
-                    }
-                    if let AnimationState::Paused(ref mut starting_progress) = &mut self.state {
-                        *starting_progress = new_starting_progress;
-                    }
-                    self.iterate_by(new_starting_progress);
-                },
+            // `started_at` is where the CURRENT iteration began and incorporates the delay: it goes back to where the
+            // first iteration began, moved by the change in delay (possibly into the future), and the iterations are
+            // counted again from there, in the direction the first one ran.
+            let old_current = match old_iteration_state {
+                KeyframesIterationState::Finite(current, _) | KeyframesIterationState::Infinite(current) => current,
+            };
+            self.started_at = old_started_at - old_current * old_duration + (self.delay - old_delay);
+            self.current_direction = other.current_direction;
+            // (`other` was advanced by its own delay already.)
+            match self.iteration_state {
+                KeyframesIterationState::Finite(ref mut current, _) |
+                KeyframesIterationState::Infinite(ref mut current) => *current = 0.0,
             }
 
-            // Don't check old_state when delay changed.
-            if self.state == Pending && self.started_at <= now {
-                self.state = Running;
+            if let Paused(old_progress) = old_state {
+                let mut progress = old_current + old_progress + iterations_between(self.delay, old_delay, self.duration);
+                progress -= self.iterate_by(progress);
+                self.state = Paused(progress);
+            } else {
+                let progress = iterations_between(self.started_at, now, self.duration);
+                if let Paused(ref mut starting_progress) = self.state {
+                    *starting_progress = progress;
+                }
+                self.iterate_by(progress);
+                // Don't check old_state when delay changed: where the animation is now is the new delay's to say.
+                if self.state == Pending && self.started_at <= now {
+                    self.state = Running;
+                    if self.has_ended(now) {
+                        self.state = Finished;
+                    }
+                }
             }
         } else {
             self.started_at = old_started_at;
@@ -834,7 +840,7 @@ impl Animation {
                 },
                 (&mut Paused(ref mut new), &Paused(old)) => *new = old,
                 (&mut Paused(ref mut progress), &Running) => {
-                    *progress = (now - old_started_at) / old_duration
+                    *progress = iterations_between(old_started_at, now, old_duration)
                 },
                 _ => {},
             }
@@ -859,7 +865,7 @@ impl Animation {
         // >1.0 (after end or during multiple iterations).
         let progress = match self.state {
             AnimationState::Running | AnimationState::Pending | AnimationState::Finished => {
-                (now - self.started_at) / self.duration
+                iterations_between(self.started_at, now, self.duration)
             },
             AnimationState::Paused(progress) => progress,
             AnimationState::Canceled => return,
@@ -1196,6 +1202,11 @@ pub struct ElementAnimationSet {
     /// Whether or not this ElementAnimationSet has had animations or transitions
     /// which have been added, removed, or had their state changed.
     pub dirty: bool,
+
+    /// The style the animations' keyframes inherited from when their values were last computed (`inherit`,
+    /// `currentColor` and the like read it): a restyle under a different one computes them again.
+    #[ignore_malloc_size_of = "Arc"]
+    pub keyframes_parent: Option<Arc<ComputedValues>>,
 }
 
 impl ElementAnimationSet {
@@ -1819,17 +1830,15 @@ pub fn maybe_start_animations<E>(
     E: TElement,
 {
     let style = new_style.get_ui();
-    for (i, name) in style.animation_name_iter().enumerate() {
+    'names: for (i, name) in style.animation_name_iter().enumerate() {
         let name = match name.as_atom() {
             Some(atom) => atom,
             None => continue,
         };
 
         debug!("maybe_start_animations: name={}", name);
+        // (A zero duration still runs: its whole active interval is the instant it starts.)
         let duration = style.animation_duration_mod(i).seconds() as f64;
-        if duration == 0. {
-            continue;
-        }
 
         let Some(keyframe_animation) = context.stylist.lookup_keyframes(name, element) else {
             continue;
@@ -1843,8 +1852,10 @@ pub fn maybe_start_animations<E>(
         let delay = style.animation_delay_mod(i).seconds() as f64;
 
         let iteration_count = style.animation_iteration_count_mod(i);
-        let iteration_state = if iteration_count.0.is_infinite() {
+        let iteration_state = if iteration_count.0.is_infinite() && duration > 0. {
             KeyframesIterationState::Infinite(0.0)
+        } else if iteration_count.0.is_infinite() {
+            KeyframesIterationState::Finite(0.0, 1.0)
         } else {
             KeyframesIterationState::Finite(0.0, iteration_count.0 as f64)
         };
@@ -1862,7 +1873,7 @@ pub fn maybe_start_animations<E>(
 
         let now = context.current_time_for_animations;
         let started_at = now + delay;
-        let starting_progress = (now - started_at) / duration;
+        let starting_progress = iterations_between(started_at, now, duration);
         let state = match style.animation_play_state_mod(i) {
             AnimationPlayState::Paused => AnimationState::Paused(starting_progress),
             AnimationPlayState::Running => AnimationState::Pending,
@@ -1924,7 +1935,7 @@ pub fn maybe_start_animations<E>(
             if new_animation.name == existing_animation.name {
                 existing_animation
                     .update_from_other(&new_animation, context.current_time_for_animations);
-                return;
+                continue 'names;
             }
         }
 

@@ -190,10 +190,11 @@ pub trait DomTraversal<E: TElement>: Sync {
             el, traversal_flags, data
         );
 
-        // Unwrap the data.
+        // Unwrap the data. (An element never styled is the normal traversal's to style: an animation-only one only
+        // moves the values of what is.)
         let data = match data {
             Some(d) if d.has_styles() => d,
-            _ => return true,
+            _ => return !traversal_flags.for_animation_only(),
         };
 
         if traversal_flags.for_animation_only() {

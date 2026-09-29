@@ -748,9 +748,12 @@ impl Animation {
         let old_direction = self.current_direction;
         let old_state = self.state.clone();
         let old_iteration_state = self.iteration_state.clone();
+        let old_is_new = self.is_new;
 
         *self = other.clone();
         self.current_direction = old_direction;
+        // (…the same animation, updated: not a new one.)
+        self.is_new = old_is_new;
 
         if self.delay != old_delay {
             // `started_at` incorporates the delay, so changing the delay necessarily changes `started_at`.
@@ -773,11 +776,18 @@ impl Animation {
                     }
                 },
                 Canceled | Pending | Running => {
-                    // Re-advance iterations from a fresh iteration state.
+                    // Re-advance iterations from a fresh iteration state: `started_at` is where the CURRENT
+                    // iteration began, so it goes back to where the first did, in the direction the first ran.
+                    let old_current = match old_iteration_state {
+                        KeyframesIterationState::Finite(current, _) |
+                        KeyframesIterationState::Infinite(current) => current,
+                    };
+                    self.started_at -= old_current * old_duration;
+                    self.current_direction = other.current_direction;
                     let new_starting_progress = (now - self.started_at) / self.duration;
                     match self.iteration_state {
-                        KeyframesIterationState::Finite(ref mut current, _) => *current = 0.0,
-                        _ => {},
+                        KeyframesIterationState::Finite(ref mut current, _) |
+                        KeyframesIterationState::Infinite(ref mut current) => *current = 0.0,
                     }
                     if let AnimationState::Paused(ref mut starting_progress) = &mut self.state {
                         *starting_progress = new_starting_progress;
@@ -793,15 +803,14 @@ impl Animation {
         } else {
             self.started_at = old_started_at;
 
-            // Don't update the iteration count, just the iteration limit.
-            // TODO: see how changing the limit affects rendering in other browsers.
-            // We might need to keep the iteration count even when it's infinite.
-            match (&mut self.iteration_state, old_iteration_state) {
-                (
-                    &mut KeyframesIterationState::Finite(ref mut iters, _),
-                    KeyframesIterationState::Finite(old_iters, _),
-                ) => *iters = old_iters,
-                _ => {},
+            // Don't update the iteration count, just the iteration limit: `started_at` is where the current
+            // iteration began, finite or not.
+            let old_iters = match old_iteration_state {
+                KeyframesIterationState::Finite(iters, _) | KeyframesIterationState::Infinite(iters) => iters,
+            };
+            match self.iteration_state {
+                KeyframesIterationState::Finite(ref mut iters, max) => *iters = old_iters.min(max),
+                KeyframesIterationState::Infinite(ref mut iters) => *iters = old_iters,
             }
 
             // Don't pause or restart animations that should remain finished.
@@ -1297,6 +1306,8 @@ impl ElementAnimationSet {
         for animation in self.animations.iter_mut() {
             if animation.is_cancelled_in_new_style(new_style) {
                 animation.state = AnimationState::Canceled;
+                // …which takes its value away: the style is cascaded again without it.
+                self.dirty = true;
             }
         }
 

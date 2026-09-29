@@ -550,12 +550,18 @@ trait PrivateMatchMethods: TElement {
         use crate::animation::AnimationSetKey;
         use crate::dom::TDocument;
 
-        let style_changed = self.process_animations_for_style(
-            context,
-            &mut old_styles.primary,
-            new_resolved_styles.primary_style_mut(),
-            /* pseudo_element = */ None,
-        );
+        // An animation-only restyle moves animated values to the current time and cascades what they change to
+        // descendants; it starts, updates and cancels nothing. A value a descendant inherits from an animation is thus
+        // in its before-change style by the time the normal traversal compares, as CSS Transitions says it is. (The
+        // element's own values moved with its rules; its pseudo-elements' are cascaded below.)
+        let animation_only = context.shared.traversal_flags.for_animation_only() && old_styles.primary.is_some();
+        let style_changed = !animation_only
+            && self.process_animations_for_style(
+                context,
+                &mut old_styles.primary,
+                new_resolved_styles.primary_style_mut(),
+                /* pseudo_element = */ None,
+            );
 
         // If we have modified animation or transitions, we recascade style for this node.
         if style_changed {
@@ -636,13 +642,15 @@ trait PrivateMatchMethods: TElement {
             },
         };
 
-        let old_style = old_styles.pseudos.get(&pseudo_element).cloned();
-        self.process_animations_for_style(
-            context,
-            &old_style,
-            &style,
-            Some(pseudo_element.clone()),
-        );
+        if !context.shared.traversal_flags.for_animation_only() {
+            let old_style = old_styles.pseudos.get(&pseudo_element).cloned();
+            self.process_animations_for_style(
+                context,
+                &old_style,
+                &style,
+                Some(pseudo_element.clone()),
+            );
+        }
 
         let declarations = context.shared.animations.get_all_declarations(
             &key,
@@ -708,12 +716,16 @@ trait PrivateMatchMethods: TElement {
 
         // We need to call this before accessing the `ElementAnimationSet` from the
         // map because this call will do a RwLock::read().
+        //
+        // An element's animations have their keyframes' values computed again whenever it is restyled, as Gecko's
+        // EFFECT_PROPERTIES task does: they may depend on its font size, on what it inherits, on its custom
+        // properties.
         let needs_animations_update = self.needs_animations_update(
             context,
             old_values.as_deref(),
             new_values,
             pseudo_element,
-        );
+        ) || (old_values.is_some() && self.has_css_animations(context.shared, pseudo_element));
 
         let might_need_transitions_update = self.might_need_transitions_update(
             context,
@@ -768,9 +780,8 @@ trait PrivateMatchMethods: TElement {
             .transitions
             .retain(|transition| transition.state != AnimationState::Finished);
 
-        animation_set
-            .animations
-            .retain(|animation| animation.state != AnimationState::Finished);
+        // A finished animation is kept for as long as `animation-name` lists it, as a CSSAnimation is: a fill holds
+        // its value, and a change to its other properties updates it rather than starting it again.
 
         // If the ElementAnimationSet is empty, and don't store it in order to
         // save memory and to avoid extra processing later.

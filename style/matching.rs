@@ -724,6 +724,10 @@ trait PrivateMatchMethods: TElement {
         // changed, as Gecko's EFFECT_PROPERTIES task does: the rules, its own font (`em`), writing mode (logical
         // properties), custom properties (`var()`) and color (`currentColor`) — and, below, the style it inherits from
         // (`inherit`).
+        //
+        // (An embedder that runs the CSS animations itself computes the keyframes again on every restyle, as Gecko's
+        // EFFECT_PROPERTIES task does: it is told to update its animations only when their style changed.)
+        let embedder_runs_animations = self.runs_css_animations();
         let own_inputs_changed = |old: &ComputedValues| {
             context.shared.traversal_flags.contains(TraversalFlags::ForCSSRuleChanges) ||
                 old.writing_mode != new_values.writing_mode ||
@@ -736,7 +740,8 @@ trait PrivateMatchMethods: TElement {
             old_values.as_deref(),
             new_values,
             pseudo_element,
-        ) || (old_values.as_deref().is_some_and(own_inputs_changed) &&
+        ) || (!embedder_runs_animations &&
+            old_values.as_deref().is_some_and(own_inputs_changed) &&
             self.has_css_animations(context.shared, pseudo_element));
         // (A pseudo-element inherits from the style its element is taking now, which is its element's to look at.)
         let parent = match pseudo_element {
@@ -761,7 +766,6 @@ trait PrivateMatchMethods: TElement {
         // An embedder that runs the CSS animations itself is told what to update, once the traversal is over, as
         // Gecko is: the animations to build from the new style, and the keyframes to compute again for it. (The
         // transitions still run here.)
-        let embedder_runs_animations = self.runs_css_animations();
         if embedder_runs_animations {
             use crate::context::{SequentialTask, UpdateAnimationsTasks};
             let mut tasks = UpdateAnimationsTasks::empty();

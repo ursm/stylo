@@ -515,6 +515,25 @@ fn animate_discrete<T: Clone>(this: &T, other: &T, procedure: Procedure) -> Resu
     }
 }
 
+/// `display` animates discretely, except that `none` holds only at its own end: animating from or to `none`, the
+/// other value applies wherever it has any weight (css-display-4 §2.9 "Animating and Interpolating display", as
+/// `visibility` does with `visible`).
+fn animate_display(
+    this: &crate::values::computed::Display,
+    other: &crate::values::computed::Display,
+    procedure: Procedure,
+) -> Result<crate::values::computed::Display, ()> {
+    if let Procedure::Interpolate { .. } = procedure {
+        let (this_weight, other_weight) = procedure.weights();
+        match (this.is_none(), other.is_none()) {
+            (true, false) => return Ok(if other_weight > 0.0 { *other } else { *this }),
+            (false, true) => return Ok(if this_weight > 0.0 { *this } else { *other }),
+            _ => {},
+        }
+    }
+    animate_discrete(this, other, procedure)
+}
+
 impl Animate for AnimationValue {
     fn animate(&self, other: &Self, procedure: Procedure) -> Result<Self, ()> {
         Ok(unsafe {
@@ -527,12 +546,14 @@ impl Animate for AnimationValue {
             }
 
             match *self {
-                <% keyfunc = lambda x: (x.animated_type(), x.animation_type == "discrete") %>
-                % for (ty, discrete), props in groupby(animated, key=keyfunc):
+                <% keyfunc = lambda x: (x.animated_type(), x.animation_type == "discrete", x.ident == "display") %>
+                % for (ty, discrete, display), props in groupby(animated, key=keyfunc):
                 ${" |\n".join("{}(ref this)".format(prop.camel_case) for prop in props)} => {
                     let other_repr =
                         &*(other as *const _ as *const AnimationValueVariantRepr<${ty}>);
-                    % if discrete:
+                    % if display:
+                    let value = animate_display(this, &other_repr.value, procedure)?;
+                    % elif discrete:
                     let value = animate_discrete(this, &other_repr.value, procedure)?;
                     % else:
                     let value = this.animate(&other_repr.value, procedure)?;

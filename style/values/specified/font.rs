@@ -1630,6 +1630,7 @@ pub enum FontSynthesis {
 
 /// A value for the font-synthesis-style property.
 #[repr(u8)]
+#[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
 #[derive(
     Clone,
     Copy,
@@ -1654,6 +1655,7 @@ pub enum FontSynthesisStyle {
     ObliqueOnly,
 }
 
+#[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
 #[derive(
     Clone,
     Debug,

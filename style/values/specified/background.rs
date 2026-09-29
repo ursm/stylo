@@ -236,11 +236,11 @@ impl BackgroundClip {
             Self::BorderBox => ClipValidity::BOTH,
             Self::PaddingBox => ClipValidity::BOTH,
             Self::ContentBox => ClipValidity::BOTH,
-                    Self::FillBox => ClipValidity::MASK,
-                    Self::StrokeBox => ClipValidity::MASK,
-                    Self::ViewBox => ClipValidity::MASK,
-                    Self::NoClip => ClipValidity::MASK,
-                    Self::Text => ClipValidity::BACKGROUND,
+            Self::FillBox => ClipValidity::MASK,
+            Self::StrokeBox => ClipValidity::MASK,
+            Self::ViewBox => ClipValidity::MASK,
+            Self::NoClip => ClipValidity::MASK,
+            Self::Text => ClipValidity::BACKGROUND,
             Self::BorderArea => ClipValidity::BACKGROUND,
         }
     }

@@ -730,7 +730,10 @@ pub enum AlignmentBaseline {
     Hanging,
     /// Use the text-over baseline.
     TextTop,
-    /// Used to implement the deprecated "align=middle" attribute for HTML img elements.
+    /// Used to implement the deprecated "align=middle" attribute for HTML img elements — and what the web's
+    /// `-webkit-baseline-middle` names (the box's own middle on the parent's baseline), which Chrome and Firefox both
+    /// accept.
+    #[parse(aliases = "-webkit-baseline-middle")]
     MozMiddleWithBaseline,
 }
 

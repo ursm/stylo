@@ -6,7 +6,9 @@
 
 use crate::derives::*;
 use crate::queries::feature::{AllowsRanges, Evaluator, FeatureFlags, QueryFeatureDescription};
+use crate::media_queries::MediaType;
 use crate::queries::values::{Orientation, PrefersColorScheme};
+use crate::values::specified::color::ForcedColors;
 use crate::values::computed::{CSSPixelLength, Context, Ratio, Resolution};
 use std::fmt::Debug;
 
@@ -159,8 +161,182 @@ fn eval_aspect_ratio(context: &Context) -> Ratio {
     Ratio::new(size.width.0 as f32, size.height.0 as f32)
 }
 
+// The media features a desktop browser answers about the display and the user's preferences, as one answers them
+// with no preference set: an sRGB colour screen that scrolls and updates, scripting on, nothing reduced, inverted,
+// forced or raised in contrast, and a browser tab rather than an installed app. On `print` media, overflow pages
+// and nothing updates.
+
+/// https://drafts.csswg.org/mediaqueries-4/#color
+fn eval_color(_: &Context) -> i32 {
+    8
+}
+
+/// https://drafts.csswg.org/mediaqueries-4/#color-index
+fn eval_color_index(_: &Context) -> i32 {
+    0
+}
+
+/// https://drafts.csswg.org/mediaqueries-4/#monochrome
+fn eval_monochrome(_: &Context) -> i32 {
+    0
+}
+
+/// https://drafts.csswg.org/mediaqueries-4/#grid
+fn eval_grid(_: &Context) -> bool {
+    false
+}
+
+/// https://drafts.csswg.org/mediaqueries-4/#color-gamut
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, PartialOrd, ToCss)]
+#[repr(u8)]
+enum ColorGamut {
+    Srgb,
+    P3,
+    Rec2020,
+}
+
+fn eval_color_gamut(_: &Context, query_value: Option<ColorGamut>) -> bool {
+    query_value.is_some_and(|v| v <= ColorGamut::Srgb)
+}
+
+/// https://drafts.csswg.org/mediaqueries-5/#dynamic-range
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, PartialOrd, ToCss)]
+#[repr(u8)]
+enum DynamicRange {
+    Standard,
+    High,
+}
+
+fn eval_dynamic_range(_: &Context, query_value: Option<DynamicRange>) -> bool {
+    query_value.is_some_and(|v| v <= DynamicRange::Standard)
+}
+
+/// https://w3c.github.io/manifest/#the-display-mode-media-feature
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, ToCss)]
+#[repr(u8)]
+enum DisplayMode {
+    Browser,
+    MinimalUi,
+    Standalone,
+    Fullscreen,
+}
+
+fn eval_display_mode(_: &Context, query_value: Option<DisplayMode>) -> bool {
+    query_value.is_none_or(|v| v == DisplayMode::Browser)
+}
+
+/// https://drafts.csswg.org/mediaqueries-5/#prefers-reduced-motion
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, ToCss)]
+#[repr(u8)]
+enum PrefersReduced {
+    NoPreference,
+    Reduce,
+}
+
+fn eval_prefers_reduced(_: &Context, query_value: Option<PrefersReduced>) -> bool {
+    query_value == Some(PrefersReduced::NoPreference)
+}
+
+/// https://drafts.csswg.org/mediaqueries-5/#prefers-contrast
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, ToCss)]
+#[repr(u8)]
+enum PrefersContrast {
+    More,
+    Less,
+    Custom,
+    NoPreference,
+}
+
+fn eval_prefers_contrast(_: &Context, query_value: Option<PrefersContrast>) -> bool {
+    query_value == Some(PrefersContrast::NoPreference)
+}
+
+/// https://drafts.csswg.org/mediaqueries-5/#forced-colors
+fn eval_forced_colors(_: &Context, query_value: Option<ForcedColors>) -> bool {
+    query_value == Some(ForcedColors::None)
+}
+
+/// https://drafts.csswg.org/mediaqueries-5/#inverted-colors
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, ToCss)]
+#[repr(u8)]
+enum InvertedColors {
+    None,
+    Inverted,
+}
+
+fn eval_inverted_colors(_: &Context, query_value: Option<InvertedColors>) -> bool {
+    query_value == Some(InvertedColors::None)
+}
+
+/// https://drafts.csswg.org/mediaqueries-5/#scripting
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, ToCss)]
+#[repr(u8)]
+enum Scripting {
+    None,
+    InitialOnly,
+    Enabled,
+}
+
+fn eval_scripting(_: &Context, query_value: Option<Scripting>) -> bool {
+    query_value.is_none_or(|v| v == Scripting::Enabled)
+}
+
+fn is_print(context: &Context) -> bool {
+    context.device().media_type() == MediaType::print()
+}
+
+/// https://drafts.csswg.org/mediaqueries-4/#overflow-block
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, ToCss)]
+#[repr(u8)]
+enum OverflowBlock {
+    None,
+    Scroll,
+    Paged,
+}
+
+fn eval_overflow_block(context: &Context, query_value: Option<OverflowBlock>) -> bool {
+    match query_value {
+        None => true,
+        Some(OverflowBlock::None) => false,
+        Some(OverflowBlock::Scroll) => !is_print(context),
+        Some(OverflowBlock::Paged) => is_print(context),
+    }
+}
+
+/// https://drafts.csswg.org/mediaqueries-4/#overflow-inline
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, ToCss)]
+#[repr(u8)]
+enum OverflowInline {
+    None,
+    Scroll,
+}
+
+fn eval_overflow_inline(context: &Context, query_value: Option<OverflowInline>) -> bool {
+    match query_value {
+        None | Some(OverflowInline::Scroll) => !is_print(context),
+        Some(OverflowInline::None) => is_print(context),
+    }
+}
+
+/// https://drafts.csswg.org/mediaqueries-4/#update
+#[derive(Clone, Copy, Debug, FromPrimitive, Parse, PartialEq, ToCss)]
+#[repr(u8)]
+enum Update {
+    None,
+    Slow,
+    Fast,
+}
+
+fn eval_update(context: &Context, query_value: Option<Update>) -> bool {
+    match query_value {
+        None | Some(Update::Fast) => !is_print(context),
+        Some(Update::Slow) => false,
+        Some(Update::None) => is_print(context),
+    }
+}
+
 /// A list with all the media features that Servo supports.
-pub static MEDIA_FEATURES: [QueryFeatureDescription; 15] = [
+pub static MEDIA_FEATURES: [QueryFeatureDescription; 31] = [
     feature!(
         atom!("width"),
         AllowsRanges::Yes,
@@ -249,6 +425,102 @@ pub static MEDIA_FEATURES: [QueryFeatureDescription; 15] = [
         atom!("prefers-color-scheme"),
         AllowsRanges::No,
         keyword_evaluator!(eval_prefers_color_scheme, PrefersColorScheme),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("color"),
+        AllowsRanges::Yes,
+        Evaluator::Integer(eval_color),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("color-index"),
+        AllowsRanges::Yes,
+        Evaluator::Integer(eval_color_index),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("monochrome"),
+        AllowsRanges::Yes,
+        Evaluator::Integer(eval_monochrome),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("grid"),
+        AllowsRanges::No,
+        Evaluator::BoolInteger(eval_grid),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("color-gamut"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_color_gamut, ColorGamut),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("dynamic-range"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_dynamic_range, DynamicRange),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("display-mode"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_display_mode, DisplayMode),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("prefers-reduced-motion"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_prefers_reduced, PrefersReduced),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("prefers-reduced-transparency"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_prefers_reduced, PrefersReduced),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("prefers-contrast"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_prefers_contrast, PrefersContrast),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("forced-colors"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_forced_colors, ForcedColors),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("inverted-colors"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_inverted_colors, InvertedColors),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("scripting"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_scripting, Scripting),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("overflow-block"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_overflow_block, OverflowBlock),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("overflow-inline"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_overflow_inline, OverflowInline),
+        FeatureFlags::empty(),
+    ),
+    feature!(
+        atom!("update"),
+        AllowsRanges::No,
+        keyword_evaluator!(eval_update, Update),
         FeatureFlags::empty(),
     ),
 ];

@@ -44,7 +44,7 @@ fn all_transform_boxes_are_enabled(_context: &ParserContext) -> bool {
 
 #[cfg(feature = "servo")]
 fn all_transform_boxes_are_enabled(_context: &ParserContext) -> bool {
-    false
+    true
 }
 
 /// The specified value of `transform-box`.

@@ -438,7 +438,12 @@ impl ToCss for NonTSPseudoClass {
         use self::NonTSPseudoClass::*;
         if let Lang(ref lang) = *self {
             dest.write_str(":lang(")?;
-            serialize_identifier(lang, dest)?;
+            for (i, range) in lang.split(',').enumerate() {
+                if i > 0 {
+                    dest.write_str(", ")?;
+                }
+                serialize_identifier(range, dest)?;
+            }
             return dest.write_char(')');
         }
 
@@ -673,8 +678,12 @@ impl<'a, 'i> ::selectors::Parser<'i> for SelectorParser<'a> {
         after_part: bool,
     ) -> Result<NonTSPseudoClass, ParseError<'i>> {
         let pseudo_class = match_ignore_ascii_case! { &name,
+            // Selectors 4's `:lang(<language-range>#)`: the ranges are kept comma-joined, in the order written.
             "lang" if !after_part => {
-                NonTSPseudoClass::Lang(parser.expect_ident_or_string()?.as_ref().into())
+                let ranges = parser.parse_comma_separated(|p| {
+                    Ok(p.expect_ident_or_string()?.as_ref().to_owned())
+                })?;
+                NonTSPseudoClass::Lang(ranges.join(",").into())
             },
             "state" => {
                 let result = AtomIdent::from(parser.expect_ident()?.as_ref());

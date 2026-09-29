@@ -953,8 +953,13 @@ impl Animation {
             return;
         }
 
-        // Progress clamped to the current iteration [0.0, 1.0].
-        let total_progress = progress.min(self.current_iteration_end_progress()).max(0.0);
+        // Progress clamped to the current iteration [0.0, 1.0] — and at its end exactly once the animation has ended,
+        // which the boundary tests reach within their tolerance.
+        let total_progress = if self.has_ended(now) {
+            self.current_iteration_end_progress()
+        } else {
+            progress.min(self.current_iteration_end_progress()).max(0.0)
+        };
 
         // At 1.0 there is nothing left to interpolate. Return end keyframe.
         if total_progress == 1.0 {

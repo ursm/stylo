@@ -547,9 +547,6 @@ trait PrivateMatchMethods: TElement {
         new_resolved_styles: &mut ResolvedElementStyles,
         _important_rules_changed: bool,
     ) {
-        use crate::animation::AnimationSetKey;
-        use crate::dom::TDocument;
-
         // An animation-only restyle moves animated values to the current time and cascades what they change to
         // descendants; it starts, updates and cancels nothing. A value a descendant inherits from an animation is thus
         // in its before-change style by the time the normal traversal compares, as CSS Transitions says it is. (The
@@ -563,27 +560,25 @@ trait PrivateMatchMethods: TElement {
                 /* pseudo_element = */ None,
             );
 
-        // If we have modified animation or transitions, we recascade style for this node.
+        // If we have modified animation or transitions, we recascade style for this node — with the element's own
+        // animation and transition rules, which an embedder may compose more into than this set holds.
         if style_changed {
             let primary_style = new_resolved_styles.primary_style();
             let mut rule_node = primary_style.rules().clone();
-            let declarations = context.shared.animations.get_all_declarations(
-                &AnimationSetKey::new_for_non_pseudo(self.as_node().opaque()),
-                context.shared.current_time_for_animations,
-                self.as_node().owner_doc().shared_lock(),
-            );
+            let transitions = self.transition_rule(&context.shared);
+            let animations = self.animation_rule(&context.shared);
             Self::replace_single_rule_node(
                 &context.shared,
                 CascadeLevel::new(CascadeOrigin::Transitions),
                 LayerOrder::root(),
-                declarations.transitions.as_ref().map(|a| a.borrow_arc()),
+                transitions.as_ref().map(|a| a.borrow_arc()),
                 &mut rule_node,
             );
             Self::replace_single_rule_node(
                 &context.shared,
                 CascadeLevel::new(CascadeOrigin::Animations),
                 LayerOrder::root(),
-                declarations.animations.as_ref().map(|a| a.borrow_arc()),
+                animations.as_ref().map(|a| a.borrow_arc()),
                 &mut rule_node,
             );
 

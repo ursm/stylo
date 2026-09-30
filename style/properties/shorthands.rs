@@ -646,7 +646,6 @@ pub mod vertical_align {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod page_break_before {
     use super::*;
     pub use crate::properties::generated::shorthands::page_break_before::*;
@@ -672,7 +671,6 @@ pub mod page_break_before {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod page_break_after {
     pub use crate::properties::generated::shorthands::page_break_after::*;
 
@@ -698,7 +696,6 @@ pub mod page_break_after {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod page_break_inside {
     use super::*;
     pub use crate::properties::generated::shorthands::page_break_inside::*;
@@ -935,7 +932,6 @@ pub mod columns {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod column_rule {
     pub use crate::properties::generated::shorthands::column_rule::*;
 
@@ -970,7 +966,6 @@ pub mod column_rule {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod text_wrap {
     pub use crate::properties::generated::shorthands::text_wrap::*;
 
@@ -1128,7 +1123,6 @@ pub mod white_space {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod _webkit_text_stroke {
     pub use crate::properties::generated::shorthands::_webkit_text_stroke::*;
 
@@ -1305,7 +1299,6 @@ pub mod gap {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod marker {
     pub use crate::properties::generated::shorthands::marker::*;
 
@@ -3027,7 +3020,6 @@ pub mod font_variant {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod font_synthesis {
     pub use crate::properties::generated::shorthands::font_synthesis::*;
 
@@ -3135,7 +3127,6 @@ pub mod font_synthesis {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod text_box {
     pub use crate::properties::generated::shorthands::text_box::*;
 
@@ -3204,7 +3195,6 @@ pub mod text_box {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod text_emphasis {
     pub use crate::properties::generated::shorthands::text_emphasis::*;
 

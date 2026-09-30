@@ -177,15 +177,8 @@ impl ToComputedValue for SpecifiedUrl {
     // If we can't resolve the URL from the specified one, we fall back to the original
     // but still return it as a ComputedUrl::Invalid
     fn to_computed_value(&self, _: &Context) -> Self::ComputedValue {
-        match self.resolved {
-            Some(ref url) => ComputedUrl::Valid(url.clone()),
-            None => match self.original {
-                Some(ref url) => ComputedUrl::Invalid(url.clone()),
-                None => {
-                    unreachable!("Found specified url with neither resolved or original URI!");
-                },
-            },
-        }
+        self.to_computed_value_without_context()
+            .expect("Found specified url with neither resolved or original URI!")
     }
 
     fn from_computed_value(computed: &ComputedUrl) -> Self {
@@ -200,6 +193,22 @@ impl ToComputedValue for SpecifiedUrl {
             },
         };
         CssUrl(Arc::new(data))
+    }
+}
+
+impl SpecifiedUrl {
+    /// (csim) The computed value, which needs no context — and a LOCAL reference (a `url()` that is a fragment alone,
+    /// CSS Values 4 §4.5.1.1) kept as written rather than resolved against the sheet, which is how Chrome and Firefox
+    /// report `filter: url(#f)` and `background-image: url(#x)`: `url("#f")`. (It stays `Invalid` to the loader: a
+    /// fragment of this document is nothing to fetch.)
+    pub fn to_computed_value_without_context(&self) -> Result<ComputedUrl, ()> {
+        match self.original {
+            Some(ref url) if url.starts_with('#') => Ok(ComputedUrl::Invalid(url.clone())),
+            _ => match self.resolved {
+                Some(ref url) => Ok(ComputedUrl::Valid(url.clone())),
+                None => self.original.clone().map(ComputedUrl::Invalid).ok_or(()),
+            },
+        }
     }
 }
 

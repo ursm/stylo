@@ -705,7 +705,7 @@ impl<'a, 'i> ::selectors::Parser<'i> for SelectorParser<'a> {
                 })?;
                 NonTSPseudoClass::Lang(ranges.join(",").into())
             },
-            "dir" if !after_part => NonTSPseudoClass::Dir(Direction::parse(parser)?),
+            "dir" => NonTSPseudoClass::Dir(Direction::parse(parser)?),
             "state" => {
                 let result = AtomIdent::from(parser.expect_ident()?.as_ref());
                 NonTSPseudoClass::CustomState(CustomState(result))

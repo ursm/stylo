@@ -234,8 +234,8 @@ def parse_aliases(value):
 
 # (csim) Blink's `-webkit-` ALIASES — another name for an unprefixed property, resolved as a declaration is parsed —
 # measured in Chrome 151 (109 of its webkit-cased IDL attributes). A Servo build takes each one its property has no
-# alias for already — and none that names a property of its own here (`-webkit-perspective` is Gecko's shorthand);
-# the JS model's table (css-utils.js `MEASURED_WEBKIT_ALIASES`) is the same list.
+# alias for already — and none that names a property of its own here (`-webkit-perspective` is Gecko's shorthand),
+# which leaves the 107 below; the JS model's table (css-utils.js `MEASURED_WEBKIT_ALIASES`) is the same list.
 CSIM_WEBKIT_ALIASES = {
     'align-content': ['-webkit-align-content'],
     'align-items': ['-webkit-align-items'],

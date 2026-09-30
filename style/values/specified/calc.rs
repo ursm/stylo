@@ -1453,9 +1453,6 @@ impl CalcNode {
     ) -> Result<MathFunction, ParseError<'i>> {
         let function = match MathFunction::from_ident(&*name) {
             Ok(f) => f,
-            // `-webkit-calc()` is `calc()` under its legacy name, which Blink and WebKit parse (and serialize as
-            // `calc()`) and pages still write.
-            Err(()) if name.eq_ignore_ascii_case("-webkit-calc") => MathFunction::Calc,
             Err(()) => {
                 return Err(location.new_unexpected_token_error(Token::Function(name.clone())))
             },

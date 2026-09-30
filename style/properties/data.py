@@ -232,6 +232,121 @@ def parse_aliases(value):
     return aliases
 
 
+# (csim) Blink's `-webkit-` ALIASES — another name for an unprefixed property, resolved as a declaration is parsed —
+# measured in Chrome 151 (109 of its webkit-cased IDL attributes). A Servo build takes each one its property has no
+# alias for already — and none that names a property of its own here (`-webkit-perspective` is Gecko's shorthand);
+# the JS model's table (css-utils.js `MEASURED_WEBKIT_ALIASES`) is the same list.
+CSIM_WEBKIT_ALIASES = {
+    'align-content': ['-webkit-align-content'],
+    'align-items': ['-webkit-align-items'],
+    'align-self': ['-webkit-align-self'],
+    'animation': ['-webkit-animation'],
+    'animation-delay': ['-webkit-animation-delay'],
+    'animation-direction': ['-webkit-animation-direction'],
+    'animation-duration': ['-webkit-animation-duration'],
+    'animation-fill-mode': ['-webkit-animation-fill-mode'],
+    'animation-iteration-count': ['-webkit-animation-iteration-count'],
+    'animation-name': ['-webkit-animation-name'],
+    'animation-play-state': ['-webkit-animation-play-state'],
+    'animation-timing-function': ['-webkit-animation-timing-function'],
+    'app-region': ['-webkit-app-region'],
+    'appearance': ['-webkit-appearance'],
+    'backface-visibility': ['-webkit-backface-visibility'],
+    'background-clip': ['-webkit-background-clip'],
+    'background-origin': ['-webkit-background-origin'],
+    'background-size': ['-webkit-background-size'],
+    'block-size': ['-webkit-logical-height'],
+    'border-block-end': ['-webkit-border-after'],
+    'border-block-end-color': ['-webkit-border-after-color'],
+    'border-block-end-style': ['-webkit-border-after-style'],
+    'border-block-end-width': ['-webkit-border-after-width'],
+    'border-block-start': ['-webkit-border-before'],
+    'border-block-start-color': ['-webkit-border-before-color'],
+    'border-block-start-style': ['-webkit-border-before-style'],
+    'border-block-start-width': ['-webkit-border-before-width'],
+    'border-bottom-left-radius': ['-webkit-border-bottom-left-radius'],
+    'border-bottom-right-radius': ['-webkit-border-bottom-right-radius'],
+    'border-inline-end': ['-webkit-border-end'],
+    'border-inline-end-color': ['-webkit-border-end-color'],
+    'border-inline-end-style': ['-webkit-border-end-style'],
+    'border-inline-end-width': ['-webkit-border-end-width'],
+    'border-inline-start': ['-webkit-border-start'],
+    'border-inline-start-color': ['-webkit-border-start-color'],
+    'border-inline-start-style': ['-webkit-border-start-style'],
+    'border-inline-start-width': ['-webkit-border-start-width'],
+    'border-radius': ['-webkit-border-radius'],
+    'border-top-left-radius': ['-webkit-border-top-left-radius'],
+    'border-top-right-radius': ['-webkit-border-top-right-radius'],
+    'box-shadow': ['-webkit-box-shadow'],
+    'box-sizing': ['-webkit-box-sizing'],
+    'break-after': ['-webkit-column-break-after'],
+    'break-before': ['-webkit-column-break-before'],
+    'break-inside': ['-webkit-column-break-inside'],
+    'clip-path': ['-webkit-clip-path'],
+    'column-count': ['-webkit-column-count'],
+    'column-gap': ['-webkit-column-gap'],
+    'column-rule': ['-webkit-column-rule'],
+    'column-rule-color': ['-webkit-column-rule-color'],
+    'column-rule-style': ['-webkit-column-rule-style'],
+    'column-rule-width': ['-webkit-column-rule-width'],
+    'column-span': ['-webkit-column-span'],
+    'column-width': ['-webkit-column-width'],
+    'columns': ['-webkit-columns'],
+    'filter': ['-webkit-filter'],
+    'flex': ['-webkit-flex'],
+    'flex-basis': ['-webkit-flex-basis'],
+    'flex-direction': ['-webkit-flex-direction'],
+    'flex-flow': ['-webkit-flex-flow'],
+    'flex-grow': ['-webkit-flex-grow'],
+    'flex-shrink': ['-webkit-flex-shrink'],
+    'flex-wrap': ['-webkit-flex-wrap'],
+    'font-feature-settings': ['-webkit-font-feature-settings'],
+    'hyphenate-character': ['-webkit-hyphenate-character'],
+    'inline-size': ['-webkit-logical-width'],
+    'justify-content': ['-webkit-justify-content'],
+    'margin-block-end': ['-webkit-margin-after'],
+    'margin-block-start': ['-webkit-margin-before'],
+    'margin-inline-end': ['-webkit-margin-end'],
+    'margin-inline-start': ['-webkit-margin-start'],
+    'mask': ['-webkit-mask'],
+    'mask-clip': ['-webkit-mask-clip'],
+    'mask-composite': ['-webkit-mask-composite'],
+    'mask-image': ['-webkit-mask-image'],
+    'mask-origin': ['-webkit-mask-origin'],
+    'mask-position': ['-webkit-mask-position'],
+    'mask-repeat': ['-webkit-mask-repeat'],
+    'mask-size': ['-webkit-mask-size'],
+    'max-block-size': ['-webkit-max-logical-height'],
+    'max-inline-size': ['-webkit-max-logical-width'],
+    'min-block-size': ['-webkit-min-logical-height'],
+    'min-inline-size': ['-webkit-min-logical-width'],
+    'opacity': ['-webkit-opacity'],
+    'order': ['-webkit-order'],
+    'padding-block-end': ['-webkit-padding-after'],
+    'padding-block-start': ['-webkit-padding-before'],
+    'padding-inline-end': ['-webkit-padding-end'],
+    'padding-inline-start': ['-webkit-padding-start'],
+    'perspective-origin': ['-webkit-perspective-origin'],
+    'print-color-adjust': ['-webkit-print-color-adjust'],
+    'shape-image-threshold': ['-webkit-shape-image-threshold'],
+    'shape-margin': ['-webkit-shape-margin'],
+    'shape-outside': ['-webkit-shape-outside'],
+    'text-emphasis': ['-webkit-text-emphasis'],
+    'text-emphasis-color': ['-webkit-text-emphasis-color'],
+    'text-emphasis-position': ['-webkit-text-emphasis-position'],
+    'text-emphasis-style': ['-webkit-text-emphasis-style'],
+    'text-size-adjust': ['-webkit-text-size-adjust'],
+    'transform-origin': ['-webkit-transform-origin'],
+    'transform-style': ['-webkit-transform-style'],
+    'transition': ['-webkit-transition'],
+    'transition-delay': ['-webkit-transition-delay'],
+    'transition-duration': ['-webkit-transition-duration'],
+    'transition-property': ['-webkit-transition-property'],
+    'transition-timing-function': ['-webkit-transition-timing-function'],
+    'user-select': ['-webkit-user-select'],
+}
+
+
 class Vector(object):
     def __init__(
         self,
@@ -881,8 +996,10 @@ class PropertiesData(object):
         self.shorthands = []
         self.shorthands_by_name = {}
         self.shorthand_aliases = []
+        # (csim: less the `-webkit-` aliases a Servo build takes, which are known properties there)
+        csim_aliases = {a for names in CSIM_WEBKIT_ALIASES.values() for a in names} if engine == "servo" else set()
         self.counted_unknown_properties = [
-            CountedUnknownProperty(p) for p in COUNTED_UNKNOWN_PROPERTIES
+            CountedUnknownProperty(p) for p in COUNTED_UNKNOWN_PROPERTIES if p not in csim_aliases
         ]
 
         self.style_structs = [
@@ -1073,6 +1190,11 @@ class PropertiesData(object):
     def add_prefixed_aliases(self, property):
         for prefix, pref in property.extra_prefixes:
             property.aliases.append(("-%s-%s" % (prefix, property.name), pref))
+        if self.engine == "servo":
+            known = {a[0] for a in property.aliases}
+            for alias in CSIM_WEBKIT_ALIASES.get(property.name, []):
+                if alias not in known:
+                    property.aliases.append((alias, None))
 
     def declare_longhand(self, style_struct, name, extra_gecko_aliases=None, engine=None, **kwargs):
         if engine and self.engine != engine:

@@ -15,7 +15,7 @@ use crate::invalidation::element::element_wrapper::ElementSnapshot;
 use crate::properties::longhands::display::computed_value::T as Display;
 use crate::properties::{ComputedValues, PropertyFlags};
 use crate::selector_parser::AttrValue as SelectorAttrValue;
-use crate::selector_parser::{PseudoElementCascadeType, SelectorParser};
+use crate::selector_parser::{Direction, PseudoElementCascadeType, SelectorParser};
 use crate::values::{AtomIdent, AtomString};
 use crate::{Atom, CaseSensitivityExt, LocalName, Namespace, Prefix};
 use cssparser::{
@@ -374,6 +374,8 @@ pub enum NonTSPseudoClass {
     CustomState(CustomState),
     Default,
     Defined,
+    /// The `:dir()` pseudo-class: an element's directionality, which the DOM sets as a state (`LTR` / `RTL`).
+    Dir(Direction),
     Disabled,
     Enabled,
     Focus,
@@ -458,6 +460,11 @@ impl ToCss for NonTSPseudoClass {
                 state.0.to_css(dest)?;
                 return dest.write_char(')');
             },
+            Self::Dir(ref dir) => {
+                dest.write_str(":dir(")?;
+                style_traits::ToCss::to_css(dir, &mut style_traits::CssWriter::new(dest))?;
+                return dest.write_char(')');
+            },
             Self::Default => ":default",
             Self::Defined => ":defined",
             Self::Disabled => ":disabled",
@@ -506,6 +513,7 @@ impl NonTSPseudoClass {
             Self::Checked => ElementState::CHECKED,
             Self::Default => ElementState::DEFAULT,
             Self::Defined => ElementState::DEFINED,
+            Self::Dir(ref dir) => dir.element_state(),
             Self::Disabled => ElementState::DISABLED,
             Self::Enabled => ElementState::ENABLED,
             Self::Focus => ElementState::FOCUS,
@@ -697,6 +705,7 @@ impl<'a, 'i> ::selectors::Parser<'i> for SelectorParser<'a> {
                 })?;
                 NonTSPseudoClass::Lang(ranges.join(",").into())
             },
+            "dir" if !after_part => NonTSPseudoClass::Dir(Direction::parse(parser)?),
             "state" => {
                 let result = AtomIdent::from(parser.expect_ident()?.as_ref());
                 NonTSPseudoClass::CustomState(CustomState(result))

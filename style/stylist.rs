@@ -14,7 +14,6 @@ use crate::custom_properties::{parse_name, SpecifiedValue};
 use crate::derives::*;
 use crate::device::Device;
 use crate::dom::TElement;
-#[cfg(feature = "gecko")]
 use crate::dom::TShadowRoot;
 #[cfg(feature = "gecko")]
 use crate::gecko_bindings::structs::{ServoStyleSetSizes, StyleRuleInclusion};
@@ -1821,7 +1820,30 @@ impl Stylist {
     where
         E: TElement + 'a,
     {
-        self.lookup_element_dependent_at_rule(element, |data| data.animations.get(name))
+        // (csim) An animation name is a tree-scoped reference (css-shadow §tree-scoped names): searched in the tree it
+        // is used in, then — "recursively" — in each host's tree outward, the document's last. Only the first step was
+        // taken: a component using the page's `@keyframes` found none (WPT animation-name-in-nested-shadow).
+        let mut result = None;
+        let doc_rules_apply = element.each_applicable_non_document_style_rule_data(|data, _host| {
+            if result.is_none() {
+                result = data.animations.get(name);
+            }
+        });
+        if result.is_some() {
+            return result;
+        }
+        if !doc_rules_apply {
+            let mut shadow = element.containing_shadow().and_then(|root| root.host().containing_shadow());
+            while let Some(root) = shadow {
+                if let Some(found) = root.style_data().and_then(|data| data.animations.get(name)) {
+                    return Some(found);
+                }
+                shadow = root.host().containing_shadow();
+            }
+        }
+        self.cascade_data.author.animations.get(name)
+            .or_else(|| self.cascade_data.user.animations.get(name))
+            .or_else(|| self.cascade_data.user_agent.cascade_data.animations.get(name))
     }
 
     /// Returns the last @view-transition rule

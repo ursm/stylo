@@ -944,9 +944,10 @@ impl NoCalcLength {
         };
         let length = context.builder.effective_zoom.zoom(length.0 as f32);
 
-        let trunc_scaled =
-            ((length as f64 * factor as f64 / 100.).trunc() / AU_PER_PX as f64) as f32;
-        CSSPixelLength::new(crate::values::normalize(trunc_scaled))
+        // (csim) The percentage of the viewport exactly, as css-values defines it: Gecko truncates it to whole app units
+        // (2vw of a 1024px viewport is 20.4667 there, where the spec and Blink give 20.48).
+        let scaled = (length as f64 * factor as f64 / 100. / AU_PER_PX as f64) as f32;
+        CSSPixelLength::new(crate::values::normalize(scaled))
     }
 
     /// Compute the container-relative length. Must only be called on a

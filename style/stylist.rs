@@ -28,8 +28,8 @@ use crate::invalidation::stylesheets::{RuleChangeKind, StylesheetInvalidationSet
 #[cfg(feature = "gecko")]
 use crate::properties::StyleBuilder;
 use crate::properties::{
-    self, AnimationDeclarations, CascadeMode, ComputedValues, FirstLineReparenting,
-    PropertyDeclarationBlock,
+    self, AnimationDeclarations, CascadeMode, ComputedValues, FirstLineReparenting, LonghandId,
+    PropertyDeclarationBlock, PropertyDeclarationId,
 };
 use crate::properties_and_values::registry::{
     PropertyRegistration, ScriptRegistry as CustomPropertyScriptRegistry,
@@ -1811,35 +1811,41 @@ impl Stylist {
     }
 
     /// Returns the registered `@keyframes` animation for the specified name.
+    ///
+    /// (csim) An animation name is a tree-scoped reference (css-scoping §tree-scoped names): it is looked up in the
+    /// tree of the declaration that GAVE the element its `animation-name`, then in each host's tree outward, the
+    /// document's last. `rules` is the element's rule node, which says which declaration won and at which shadow
+    /// cascade order — that is, in which tree it was written: `#h { animation: foo }` in the document names the
+    /// document's `foo` even where `#h`'s own shadow tree has one (Chrome), and a name used in a shadow tree finds the
+    /// page's `@keyframes` when its own tree has none (WPT animation-name-in-nested-shadow).
     #[inline]
     pub fn lookup_keyframes<'a, E>(
         &'a self,
         name: &Atom,
         element: E,
+        rules: &StrongRuleNode,
+        guards: &StylesheetGuards,
     ) -> Option<&'a KeyframesAnimation>
     where
         E: TElement + 'a,
     {
-        // (csim) An animation name is a tree-scoped reference (css-shadow §tree-scoped names): searched in the tree it
-        // is used in, then — "recursively" — in each host's tree outward, the document's last. Only the first step was
-        // taken: a component using the page's `@keyframes` found none (WPT animation-name-in-nested-shadow).
-        let mut result = None;
-        let doc_rules_apply = element.each_applicable_non_document_style_rule_data(|data, _host| {
-            if result.is_none() {
-                result = data.animations.get(name);
-            }
+        let declaring = rules.self_and_ancestors().find_map(|node| {
+            let source = node.style_source()?;
+            let level = node.cascade_level();
+            let (_, importance) = source.read(level.guard(guards)).get(PropertyDeclarationId::Longhand(
+                LonghandId::AnimationName,
+            ))?;
+            (importance == node.importance()).then_some(level)
         });
-        if result.is_some() {
-            return result;
-        }
-        if !doc_rules_apply {
-            let mut shadow = element.containing_shadow().and_then(|root| root.host().containing_shadow());
-            while let Some(root) = shadow {
-                if let Some(found) = root.style_data().and_then(|data| data.animations.get(name)) {
-                    return Some(found);
-                }
-                shadow = root.host().containing_shadow();
+        let mut shadow = match declaring {
+            Some(level) if level.is_tree() => level.get_shadow_root_for_scoped(element),
+            _ => None,
+        };
+        while let Some(root) = shadow {
+            if let Some(found) = root.style_data().and_then(|data| data.animations.get(name)) {
+                return Some(found);
             }
+            shadow = root.host().containing_shadow();
         }
         self.cascade_data.author.animations.get(name)
             .or_else(|| self.cascade_data.user.animations.get(name))

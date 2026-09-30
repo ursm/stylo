@@ -1901,7 +1901,7 @@ pub fn maybe_start_animations<E>(
         // (A zero duration still runs: its whole active interval is the instant it starts.)
         let duration = style.animation_duration_mod(i).seconds() as f64;
 
-        let Some(keyframe_animation) = context.stylist.lookup_keyframes(name, element) else {
+        let Some(keyframe_animation) = context.stylist.lookup_keyframes(name, element, new_style.rules(), &context.guards) else {
             continue;
         };
 

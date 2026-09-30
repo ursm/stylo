@@ -1072,6 +1072,10 @@ class PropertiesData(object):
 
     def add_prefixed_aliases(self, property):
         for prefix, pref in property.extra_prefixes:
+            # (csim) A Servo build takes the `-webkit-` aliases the Compat Standard defines, and no `-moz-` one: those
+            # are Gecko's own, in no specification.
+            if self.engine == "servo" and prefix == "moz":
+                continue
             property.aliases.append(("-%s-%s" % (prefix, property.name), pref))
 
     def declare_longhand(self, style_struct, name, extra_gecko_aliases=None, engine=None, **kwargs):

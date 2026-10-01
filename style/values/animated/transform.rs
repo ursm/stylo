@@ -18,6 +18,7 @@ use crate::values::computed::transform::{DirectionVector, Matrix, Matrix3D};
 use crate::values::computed::Angle;
 use crate::values::computed::{Length, LengthPercentage};
 use crate::values::computed::{Number, Percentage};
+use crate::values::generics::transform::ToMatrix;
 use crate::values::distance::{ComputeSquaredDistance, SquaredDistance};
 use crate::values::generics::transform::{self, Transform, TransformOperation};
 use crate::values::generics::transform::{Rotate, Scale, Translate};
@@ -1181,11 +1182,21 @@ impl Animate for ComputedTransformOperation {
                 };
                 Ok(TransformOperation::Perspective(used_value))
             },
-            _ if self.is_translate() && other.is_translate() => self
-                .to_translate_3d()
-                .animate(&other.to_translate_3d(), procedure),
+            // (…two 2D functions by their 2D common primitive, a 3D one by the 3D: `translateX` and `translateY` meet
+            // as `translate()`, not `translate3d()` — csim)
+            _ if self.is_translate() && other.is_translate() => {
+                if self.is_3d() || other.is_3d() {
+                    self.to_translate_3d().animate(&other.to_translate_3d(), procedure)
+                } else {
+                    self.to_translate_2d().animate(&other.to_translate_2d(), procedure)
+                }
+            },
             _ if self.is_scale() && other.is_scale() => {
-                self.to_scale_3d().animate(&other.to_scale_3d(), procedure)
+                if self.is_3d() || other.is_3d() {
+                    self.to_scale_3d().animate(&other.to_scale_3d(), procedure)
+                } else {
+                    self.to_scale_2d().animate(&other.to_scale_2d(), procedure)
+                }
             },
             _ if self.is_rotate() && other.is_rotate() => self
                 .to_rotate_3d()

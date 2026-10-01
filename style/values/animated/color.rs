@@ -65,6 +65,11 @@ pub type ColorMix = GenericColorMix<Color, Percentage>;
 impl Animate for Color {
     #[inline]
     fn animate(&self, other: &Self, procedure: Procedure) -> Result<Self, ()> {
+        // (csim) Between a colour and itself every point of the interpolation is that colour — `currentcolor` and
+        // `currentcolor` interpolate to `currentcolor`, not to a mix of it with itself that never simplifies.
+        if matches!(procedure, Procedure::Interpolate { .. }) && self == other {
+            return Ok(self.clone());
+        }
         let (left_weight, right_weight) = procedure.weights();
 
         Ok(Self::from_color_mix(ColorMix {

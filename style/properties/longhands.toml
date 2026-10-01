@@ -906,6 +906,7 @@ affects = "layout"
 type = "FontStretch"
 initial = "computed::FontStretch::hundred()"
 struct = "font"
+aliases = ["font-width"]
 initial_specified_value = "specified::FontStretch::normal()"
 gecko_ffi_name = "mFont.stretch"
 spec = "https://drafts.csswg.org/css-fonts/#propdef-font-stretch"
@@ -1941,6 +1942,15 @@ boxed = true
 spec = "https://svgwg.org/svg2-draft/painting.html#SpecifyingStrokePaint"
 affects = "paint"
 
+# (csim) CSS Fill and Stroke 3's stroke colour, parsed, computed and animated as a colour; nothing paints by it.
+[stroke-color]
+type = "Color"
+initial = "computed::Color::TRANSPARENT_BLACK"
+struct = "inherited_svg"
+engine = "servo"
+spec = "https://drafts.fxtf.org/fill-stroke-3/#propdef-stroke-color"
+affects = "paint"
+
 [stroke-dasharray]
 type = "SVGStrokeDashArray"
 initial = "Default::default()"
@@ -2552,6 +2562,15 @@ gecko_pref = "layout.css.text-box.enabled"
 has_effect_on_gecko_scrollbars = false
 spec = "https://drafts.csswg.org/css-inline/#text-box-trim"
 affects = "layout"
+
+# (csim) CSS Text Decoration 4's legacy `text-decoration-skip`, its two keywords.
+[text-decoration-skip]
+struct = "inherited_text"
+engine = "servo"
+spec = "https://drafts.csswg.org/css-text-decor-4/#propdef-text-decoration-skip"
+animation_type = "discrete"
+affects = "paint"
+keyword = { values = ["auto", "none"] }
 
 [text-decoration-skip-ink]
 type = "TextDecorationSkipInk"
@@ -3868,6 +3887,15 @@ spec = "https://drafts.csswg.org/css-writing-modes-3/#text-combine-upright"
 animation_type = "none"
 affects = "layout"
 keyword = { values = ["none", "all"] }
+
+# (csim) CSS Text 4's `text-spacing-trim`, its single keywords; nothing lays out by it.
+[text-spacing-trim]
+struct = "inherited_text"
+engine = "servo"
+spec = "https://drafts.csswg.org/css-text-4/#text-spacing-trim-property"
+animation_type = "discrete"
+affects = "layout"
+keyword = { values = ["normal", "space-all", "space-first", "trim-start", "trim-both", "trim-all", "auto"] }
 
 [text-rendering]
 struct = "inherited_text"

@@ -403,6 +403,35 @@ impl TransformOperation {
         }
     }
 
+    /// Convert to a 2D Translate — the common primitive of two 2D translate functions (CSS Transforms 2,
+    /// "interpolation of primitives and derived transform functions").
+    ///
+    /// Must be called on a 2D translate function.
+    pub fn to_translate_2d(&self) -> Self {
+        match *self {
+            generic::TransformOperation::Translate(..) => self.clone(),
+            generic::TransformOperation::TranslateX(ref x) => {
+                generic::TransformOperation::Translate(x.clone(), LengthPercentage::zero())
+            },
+            generic::TransformOperation::TranslateY(ref y) => {
+                generic::TransformOperation::Translate(LengthPercentage::zero(), y.clone())
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    /// Convert to a 2D Scale, the common primitive of two 2D scale functions.
+    ///
+    /// Must be called on a 2D scale function.
+    pub fn to_scale_2d(&self) -> Self {
+        match *self {
+            generic::TransformOperation::Scale(..) => self.clone(),
+            generic::TransformOperation::ScaleX(x) => generic::TransformOperation::Scale(x, 1.),
+            generic::TransformOperation::ScaleY(y) => generic::TransformOperation::Scale(1., y),
+            _ => unreachable!(),
+        }
+    }
+
     /// Convert to a Rotate3D.
     ///
     /// Must be called on a Rotate function.

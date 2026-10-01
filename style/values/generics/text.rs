@@ -167,6 +167,36 @@ pub enum GenericTextDecorationLength<L> {
     FromFont,
 }
 
+/// (csim) The `text-size-adjust` property: `auto | none | <percentage [0,∞]>`. A percentage interpolates; a
+/// keyword is discrete.
+///
+/// https://drafts.csswg.org/css-size-adjust/#adjustment-control
+#[repr(C, u8)]
+#[derive(
+    Animate,
+    Clone,
+    Copy,
+    ComputeSquaredDistance,
+    Debug,
+    MallocSizeOf,
+    Parse,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToAnimatedValue,
+    ToAnimatedZero,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+    ToTyped,
+)]
+#[allow(missing_docs)]
+pub enum GenericTextSizeAdjust<P> {
+    Auto,
+    None,
+    Percentage(P),
+}
+
 /// Text decoration inset values.
 ///
 /// https://drafts.csswg.org/css-text-decor-4/#text-decoration-skip-inset-property

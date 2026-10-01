@@ -1577,3 +1577,53 @@ impl TextBoxTrim {
         TextBoxTrim::NONE
     }
 }
+
+/// (csim) The `text-size-adjust` property.
+pub type TextSizeAdjust = crate::values::generics::text::GenericTextSizeAdjust<crate::values::specified::NonNegativePercentage>;
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    PartialEq,
+    Parse,
+    SpecifiedValueInfo,
+    ToCss,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+    ToTyped,
+)]
+#[css(bitflags(
+    single = "none",
+    mixed = "first,force-end,allow-end,last",
+    validate_mixed = "Self::validate_mixed_flags",
+))]
+#[repr(C)]
+/// (csim) The `hanging-punctuation` property: `none | [ first || [ force-end | allow-end ] || last ]`.
+///
+/// https://drafts.csswg.org/css-text-4/#hanging-punctuation-property
+pub struct HangingPunctuation(u8);
+bitflags! {
+    impl HangingPunctuation: u8 {
+        /// `none`
+        const NONE = 0;
+        /// `first`
+        const FIRST = 1 << 0;
+        /// `force-end`
+        const FORCE_END = 1 << 1;
+        /// `allow-end`
+        const ALLOW_END = 1 << 2;
+        /// `last`
+        const LAST = 1 << 3;
+    }
+}
+
+impl HangingPunctuation {
+    fn validate_mixed_flags(&self) -> bool {
+        // `force-end` and `allow-end` are alternatives.
+        !self.contains(Self::FORCE_END | Self::ALLOW_END)
+    }
+}

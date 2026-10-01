@@ -3864,6 +3864,26 @@ affects = "layout"
 extra_prefixes = ["moz"]
 keyword = { values = ["manual", "none", "auto"] }
 
+# (csim) CSS Mobile Text Size Adjustment's `text-size-adjust`, its percentage too; nothing lays out by it.
+[text-size-adjust]
+type = "TextSizeAdjust"
+initial = "computed::TextSizeAdjust::Auto"
+struct = "inherited_text"
+engine = "servo"
+spec = "https://drafts.csswg.org/css-size-adjust/#adjustment-control"
+affects = "layout"
+aliases = ["-webkit-text-size-adjust"]
+
+# (csim) CSS Text 4's `hanging-punctuation`; nothing hangs by it.
+[hanging-punctuation]
+type = "HangingPunctuation"
+initial = "computed::HangingPunctuation::NONE"
+struct = "inherited_text"
+engine = "servo"
+spec = "https://drafts.csswg.org/css-text-4/#hanging-punctuation-property"
+animation_type = "discrete"
+affects = "layout"
+
 [-moz-text-size-adjust]
 struct = "inherited_text"
 engine = "gecko"

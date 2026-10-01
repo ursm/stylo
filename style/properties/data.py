@@ -702,6 +702,7 @@ class Longhand(Property):
                 "TextAutospace",
                 "TextBoxEdge",
                 "TextBoxTrim",
+                "HangingPunctuation",
                 "TextDecorationLine",
                 "TextEmphasisPosition",
                 "TextJustify",
@@ -1084,6 +1085,8 @@ class PropertiesData(object):
         if extra_gecko_aliases and self.engine == "gecko":
             kwargs.setdefault('aliases', []).extend(extra_gecko_aliases)
         longhand = Longhand(style_struct, name, **kwargs)
+        # (csim) A property this engine defines is no unknown one to count.
+        self.counted_unknown_properties = [p for p in self.counted_unknown_properties if p.name != name]
         self.add_prefixed_aliases(longhand)
         longhand.aliases = [Alias(xp[0], longhand, xp[1]) for xp in longhand.aliases]
         self.longhand_aliases += longhand.aliases

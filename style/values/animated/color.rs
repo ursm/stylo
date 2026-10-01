@@ -65,10 +65,17 @@ pub type ColorMix = GenericColorMix<Color, Percentage>;
 impl Animate for Color {
     #[inline]
     fn animate(&self, other: &Self, procedure: Procedure) -> Result<Self, ()> {
-        // (csim) Between a colour and itself every point of the interpolation is that colour — `currentcolor` and
-        // `currentcolor` interpolate to `currentcolor`, not to a mix of it with itself that never simplifies.
-        if matches!(procedure, Procedure::Interpolate { .. }) && self == other {
-            return Ok(self.clone());
+        // (csim) An interpolation between two ABSOLUTE colours is theirs: in Oklab unless both are legacy sRGB colours
+        // (CSS Color 4 §12.1), where the mix below would always be sRGB — `lab()` to `lab()` came out `color(srgb …)`.
+        // And between any other colour and itself every point is that colour: `currentcolor` and `currentcolor`
+        // interpolate to `currentcolor`, not to a mix of it with itself that never simplifies.
+        if matches!(procedure, Procedure::Interpolate { .. }) {
+            if let (Self::Absolute(left), Self::Absolute(right)) = (self, other) {
+                return Ok(Self::Absolute(left.animate(right, procedure)?));
+            }
+            if self == other {
+                return Ok(self.clone());
+            }
         }
         let (left_weight, right_weight) = procedure.weights();
 

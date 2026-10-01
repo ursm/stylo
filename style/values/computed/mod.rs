@@ -119,6 +119,7 @@ pub use self::text::{OverflowWrap, RubyPosition, TextOverflow, WordBreak, WordSp
 pub use self::text::{TextAlign, TextAlignLast, TextEmphasisPosition, TextEmphasisStyle};
 pub use self::text::{TextAutospace, TextUnderlinePosition};
 pub use self::text::{TextBoxEdge, TextBoxTrim};
+pub use self::text::{HangingPunctuation, TextSizeAdjust};
 pub use self::text::{
     TextDecorationInset, TextDecorationLength, TextDecorationSkipInk, TextJustify,
 };

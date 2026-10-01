@@ -26,7 +26,7 @@ use thin_vec::ThinVec;
 
 pub use crate::values::specified::text::{
     HyphenateCharacter, LineBreak, MozControlCharacterVisibility, OverflowWrap, RubyPosition,
-    TextAlignLast, TextAutospace, TextBoxEdge, TextBoxTrim, TextDecorationLine,
+    HangingPunctuation, TextAlignLast, TextAutospace, TextBoxEdge, TextBoxTrim, TextDecorationLine,
     TextDecorationSkipInk, TextEmphasisPosition, TextJustify, TextOverflow, TextTransform,
     TextUnderlinePosition, WordBreak,
 };
@@ -197,3 +197,7 @@ pub enum TextEmphasisStyle {
     /// `<string>` (of which only the first grapheme cluster will be used).
     String(crate::OwnedStr),
 }
+
+/// (csim) The computed `text-size-adjust`.
+pub type TextSizeAdjust =
+    crate::values::generics::text::GenericTextSizeAdjust<crate::values::computed::NonNegativePercentage>;

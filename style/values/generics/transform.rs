@@ -786,7 +786,21 @@ where
             ),
             Matrix3D(ref m) => m.clone().try_into()?,
             Matrix(ref m) => m.clone().try_into()?,
-            InterpolateMatrix { .. } | AccumulateMatrix { .. } => {
+            // (csim) Two mismatched lists interpolate as matrices (CSS Transforms 2 §16, "interpolation of
+            // matrices"): each list resolved against the reference box — a percentage translation is of it, so this
+            // could not be done at computed-value time — and the two decomposed and interpolated. An undecomposable
+            // one interpolates discretely: the from list below the halfway point, the to list from it.
+            InterpolateMatrix { ref from_list, ref to_list, progress } => {
+                use crate::values::animated::{Animate, Procedure};
+                let narrow = |m: Transform3D<f64>| ComputedMatrix3D::from(m.cast::<f32>());
+                let from = narrow(from_list.to_transform_3d_matrix_f64(reference_box)?.0);
+                let to = narrow(to_list.to_transform_3d_matrix_f64(reference_box)?.0);
+                match from.animate(&to, Procedure::Interpolate { progress: progress.0 as f64 }) {
+                    Ok(m) => m.try_into()?,
+                    Err(()) => if progress.0 < 0.5 { from.try_into()? } else { to.try_into()? },
+                }
+            },
+            AccumulateMatrix { .. } => {
                 // TODO: Convert InterpolateMatrix/AccumulateMatrix into a valid Transform3D by
                 // the reference box and do interpolation on these two Transform3D matrices.
                 // Both Gecko and Servo don't support this for computing distance, and Servo

@@ -288,16 +288,11 @@ impl Parse for TrackList<LengthPercentage, Integer> {
     }
 }
 
-#[cfg(feature = "gecko")]
+// `subgrid` is a value `grid-template-rows` / `-columns` take in every engine that ships it (csim: a Servo build parses
+// it too, where it was off, so the declaration reaches the layout that consumes it and `@supports` says so).
 #[inline]
 fn allow_grid_template_subgrids() -> bool {
     true
-}
-
-#[cfg(feature = "servo")]
-#[inline]
-fn allow_grid_template_subgrids() -> bool {
-    false
 }
 
 #[cfg(feature = "gecko")]

@@ -144,7 +144,14 @@ pub mod border_block {
         where
             W: fmt::Write,
         {
-            // FIXME: Should serialize empty if start != end, right?
+            // Only where both sides are the same: the shorthand sets one value for both, so two different sides have
+            // no serialization as it, and the block falls back to the longhands (csim; it was the start side's).
+            if self.border_block_start_width != self.border_block_end_width ||
+                self.border_block_start_style != self.border_block_end_style ||
+                self.border_block_start_color != self.border_block_end_color
+            {
+                return Ok(());
+            }
             super::serialize_directional_border(
                 dest,
                 &self.border_block_start_width,
@@ -179,7 +186,14 @@ pub mod border_inline {
         where
             W: fmt::Write,
         {
-            // FIXME: Should serialize empty if start != end, right?
+            // Only where both sides are the same: the shorthand sets one value for both, so two different sides have
+            // no serialization as it, and the block falls back to the longhands (csim; it was the start side's).
+            if self.border_inline_start_width != self.border_inline_end_width ||
+                self.border_inline_start_style != self.border_inline_end_style ||
+                self.border_inline_start_color != self.border_inline_end_color
+            {
+                return Ok(());
+            }
             super::serialize_directional_border(
                 dest,
                 &self.border_inline_start_width,

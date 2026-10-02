@@ -79,6 +79,10 @@ pub enum PseudoElement {
     ServoTableGrid,
     ServoTableWrapper,
 
+    // (csim) `::highlight(<custom-ident>)` (CSS Highlight API), parsed and never styled here: a selector naming one is a
+    // valid selector, as in Chrome and Firefox.
+    Highlight(Atom),
+
     // (csim) A `::-webkit-` pseudo-element no specification defines, which parses — a selector naming one is valid and
     // matches nothing, so the rest of its list still applies — as Gecko's does (CSS Selectors 4 §3.6.2 / Compat).
     // Never styled: the stylist discards a selector naming one.
@@ -86,7 +90,7 @@ pub enum PseudoElement {
 }
 
 /// The count of all pseudo-elements. (`UnknownWebkit` last: its discriminant is the count less one.)
-pub const PSEUDO_COUNT: usize = 23;
+pub const PSEUDO_COUNT: usize = 24;
 
 impl ToCss for PseudoElement {
     fn to_css<W>(&self, dest: &mut W) -> fmt::Result
@@ -97,6 +101,11 @@ impl ToCss for PseudoElement {
         if let UnknownWebkit(ref name) = *self {
             dest.write_str("::-webkit-")?;
             return serialize_atom_identifier(name, dest);
+        }
+        if let Highlight(ref name) = *self {
+            dest.write_str("::highlight(")?;
+            serialize_atom_identifier(name, dest)?;
+            return dest.write_char(')');
         }
         dest.write_str(match *self {
             After => "::after",
@@ -121,7 +130,7 @@ impl ToCss for PseudoElement {
             ServoAnonymousTableRow => "::-servo-anonymous-table-row",
             ServoTableGrid => "::-servo-table-grid",
             ServoTableWrapper => "::-servo-table-wrapper",
-            UnknownWebkit(..) => unreachable!(),
+            UnknownWebkit(..) | Highlight(..) => unreachable!(),
         })
     }
 }
@@ -274,6 +283,7 @@ impl PseudoElement {
             | PseudoElement::Selection => PseudoElementCascadeType::Eager,
             PseudoElement::Backdrop
             | PseudoElement::FirstLine
+            | PseudoElement::Highlight(..)
             | PseudoElement::UnknownWebkit(..)
             | PseudoElement::ColorSwatch
             | PseudoElement::FileSelectorButton
@@ -812,6 +822,17 @@ impl<'a, 'i> ::selectors::Parser<'i> for SelectorParser<'a> {
         };
 
         Ok(pseudo_element)
+    }
+
+    fn parse_functional_pseudo_element<'t>(
+        &self,
+        name: CowRcStr<'i>,
+        arguments: &mut CssParser<'i, 't>,
+    ) -> Result<PseudoElement, ParseError<'i>> {
+        if name.eq_ignore_ascii_case("highlight") {
+            return Ok(PseudoElement::Highlight(Atom::from(arguments.expect_ident()?.as_ref())));
+        }
+        Err(arguments.new_custom_error(SelectorParseErrorKind::UnsupportedPseudoClassOrElement(name)))
     }
 
     fn default_namespace(&self) -> Option<Namespace> {

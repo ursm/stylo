@@ -16,7 +16,8 @@ use crate::properties::longhands::display::computed_value::T as Display;
 use crate::properties::{ComputedValues, PropertyFlags};
 use crate::selector_parser::AttrValue as SelectorAttrValue;
 use crate::selector_parser::{Direction, PseudoElementCascadeType, SelectorParser};
-use crate::values::{AtomIdent, AtomString};
+use crate::str::starts_with_ignore_ascii_case;
+use crate::values::{serialize_atom_identifier, AtomIdent, AtomString};
 use crate::{Atom, CaseSensitivityExt, LocalName, Namespace, Prefix};
 use cssparser::{
     match_ignore_ascii_case, serialize_identifier, CowRcStr, Parser as CssParser, SourceLocation,
@@ -36,7 +37,7 @@ use style_traits::{ParseError, StyleParseErrorKind};
 ///
 /// NB: If you add to this list, be sure to update `each_simple_pseudo_element` too.
 #[derive(
-    Clone, Copy, Debug, Deserialize, Eq, Hash, MallocSizeOf, PartialEq, Serialize, ToShmem,
+    Clone, Debug, Deserialize, Eq, Hash, MallocSizeOf, PartialEq, Serialize, ToShmem,
 )]
 #[allow(missing_docs)]
 #[repr(u8)]
@@ -77,10 +78,15 @@ pub enum PseudoElement {
     ServoAnonymousTableRow,
     ServoTableGrid,
     ServoTableWrapper,
+
+    // (csim) A `::-webkit-` pseudo-element no specification defines, which parses — a selector naming one is valid and
+    // matches nothing, so the rest of its list still applies — as Gecko's does (CSS Selectors 4 §3.6.2 / Compat).
+    // Never styled: the stylist discards a selector naming one.
+    UnknownWebkit(Atom),
 }
 
-/// The count of all pseudo-elements.
-pub const PSEUDO_COUNT: usize = PseudoElement::ServoTableWrapper as usize + 1;
+/// The count of all pseudo-elements. (`UnknownWebkit` last: its discriminant is the count less one.)
+pub const PSEUDO_COUNT: usize = 23;
 
 impl ToCss for PseudoElement {
     fn to_css<W>(&self, dest: &mut W) -> fmt::Result
@@ -88,6 +94,10 @@ impl ToCss for PseudoElement {
         W: fmt::Write,
     {
         use self::PseudoElement::*;
+        if let UnknownWebkit(ref name) = *self {
+            dest.write_str("::-webkit-")?;
+            return serialize_atom_identifier(name, dest);
+        }
         dest.write_str(match *self {
             After => "::after",
             Before => "::before",
@@ -111,6 +121,7 @@ impl ToCss for PseudoElement {
             ServoAnonymousTableRow => "::-servo-anonymous-table-row",
             ServoTableGrid => "::-servo-table-grid",
             ServoTableWrapper => "::-servo-table-wrapper",
+            UnknownWebkit(..) => unreachable!(),
         })
     }
 }
@@ -131,13 +142,16 @@ impl PseudoElement {
     #[inline]
     pub fn eager_index(&self) -> usize {
         debug_assert!(self.is_eager());
-        self.clone() as usize
+        self.index()
     }
 
     /// An index for this pseudo-element to be indexed in an enumerated array.
     #[inline]
     pub fn index(&self) -> usize {
-        self.clone() as usize
+        // SAFETY: a `#[repr(u8)]` enum starts with its `u8` discriminant (RFC 2195).
+        let index = unsafe { *(self as *const Self).cast::<u8>() } as usize;
+        debug_assert!(index < PSEUDO_COUNT);
+        index
     }
 
     /// An array of `None`, one per pseudo-element.
@@ -148,9 +162,13 @@ impl PseudoElement {
     /// Creates a pseudo-element from an eager index.
     #[inline]
     pub fn from_eager_index(i: usize) -> Self {
-        const _: () = assert!(EAGER_PSEUDO_COUNT <= (u8::MAX as usize));
-        assert!(i < EAGER_PSEUDO_COUNT);
-        let result: PseudoElement = unsafe { mem::transmute(i as u8) };
+        let result = match i {
+            0 => PseudoElement::After,
+            1 => PseudoElement::Before,
+            2 => PseudoElement::Selection,
+            3 => PseudoElement::FirstLetter,
+            _ => panic!("no eager pseudo-element {i}"),
+        };
         debug_assert!(result.is_eager());
         result
     }
@@ -164,7 +182,7 @@ impl PseudoElement {
     /// Whether this is an unknown ::-webkit- pseudo-element.
     #[inline]
     pub fn is_unknown_webkit_pseudo_element(&self) -> bool {
-        false
+        matches!(*self, PseudoElement::UnknownWebkit(..))
     }
 
     /// Whether this pseudo-element is the ::marker pseudo.
@@ -256,6 +274,7 @@ impl PseudoElement {
             | PseudoElement::Selection => PseudoElementCascadeType::Eager,
             PseudoElement::Backdrop
             | PseudoElement::FirstLine
+            | PseudoElement::UnknownWebkit(..)
             | PseudoElement::ColorSwatch
             | PseudoElement::FileSelectorButton
             | PseudoElement::Marker
@@ -637,7 +656,7 @@ impl<'a, 'i> ::selectors::Parser<'i> for SelectorParser<'a> {
         let pseudo_class = match_ignore_ascii_case! { &name,
             "active" => NonTSPseudoClass::Active,
             "any-link" => NonTSPseudoClass::AnyLink,
-            "autofill" => NonTSPseudoClass::Autofill,
+            "autofill" | "-webkit-autofill" => NonTSPseudoClass::Autofill,
             "checked" => NonTSPseudoClass::Checked,
             "default" => NonTSPseudoClass::Default,
             "defined" => NonTSPseudoClass::Defined,
@@ -784,8 +803,12 @@ impl<'a, 'i> ::selectors::Parser<'i> for SelectorParser<'a> {
                 }
                 ServoTableWrapper
             },
-            _ => return Err(location.new_custom_error(SelectorParseErrorKind::UnexpectedIdent(name.clone())))
-
+            _ => {
+                if !starts_with_ignore_ascii_case(&name, "-webkit-") {
+                    return Err(location.new_custom_error(SelectorParseErrorKind::UnexpectedIdent(name.clone())))
+                }
+                UnknownWebkit(Atom::from(name[8..].to_ascii_lowercase()))
+            },
         };
 
         Ok(pseudo_element)

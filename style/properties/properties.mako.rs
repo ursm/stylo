@@ -1644,7 +1644,7 @@ impl ComputedValues {
     /// Returns the pseudo-element that this style represents.
     #[cfg(feature = "servo")]
     pub fn pseudo(&self) -> Option<PseudoElement> {
-        self.pseudo
+        self.pseudo.clone()
     }
 
     /// Returns true if this is the style for a pseudo-element.

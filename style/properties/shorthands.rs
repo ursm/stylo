@@ -561,7 +561,6 @@ pub mod border {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod container {
     use super::*;
     pub use crate::properties::generated::shorthands::container::*;
@@ -734,7 +733,6 @@ pub mod page_break_inside {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod offset {
     use super::*;
     pub use crate::properties::generated::shorthands::offset::*;
@@ -1756,7 +1754,6 @@ pub mod grid_area {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod position_try {
     pub use crate::properties::generated::shorthands::position_try::*;
 
@@ -1767,12 +1764,12 @@ pub mod position_try {
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Longhands, ParseError<'i>> {
-        let order =
-            if static_prefs::pref!("layout.css.anchor-positioning.position-try-order.enabled") {
-                input.try_parse(PositionTryOrder::parse).ok()
-            } else {
-                None
-            };
+        // (csim: a Servo build has `position-try-order` as a longhand of its own, so the shorthand takes it as well)
+        #[cfg(feature = "gecko")]
+        let takes_order = static_prefs::pref!("layout.css.anchor-positioning.position-try-order.enabled");
+        #[cfg(feature = "servo")]
+        let takes_order = true;
+        let order = if takes_order { input.try_parse(PositionTryOrder::parse).ok() } else { None };
         let fallbacks = PositionTryFallbacks::parse(context, input)?;
         Ok(expanded! {
             position_try_order: order.unwrap_or(PositionTryOrder::normal()),
@@ -1785,7 +1782,12 @@ pub mod position_try {
         where
             W: fmt::Write,
         {
-            if let Some(o) = self.position_try_order {
+            // (…behind a switch of its own in Gecko, so the shorthand may lack it there)
+            #[cfg(feature = "gecko")]
+            let order = self.position_try_order;
+            #[cfg(feature = "servo")]
+            let order = Some(self.position_try_order);
+            if let Some(o) = order {
                 if *o != PositionTryOrder::Normal {
                     o.to_css(dest)?;
                     dest.write_char(' ')?;
@@ -1796,7 +1798,6 @@ pub mod position_try {
     }
 }
 
-#[cfg(feature = "gecko")]
 fn timeline_to_css<W>(
     name: &[specified::TimelineName],
     axes: &[specified::ScrollAxis],
@@ -1821,7 +1822,6 @@ where
     Ok(())
 }
 
-#[cfg(feature = "gecko")]
 pub mod scroll_timeline {
     pub use crate::properties::generated::shorthands::scroll_timeline::*;
 
@@ -1864,7 +1864,6 @@ pub mod scroll_timeline {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod view_timeline {
     pub use crate::properties::generated::shorthands::view_timeline::*;
 
@@ -1903,7 +1902,6 @@ pub mod view_timeline {
     }
 }
 
-#[cfg(feature = "gecko")]
 pub mod animation_range {
     pub use crate::properties::generated::shorthands::animation_range::*;
 

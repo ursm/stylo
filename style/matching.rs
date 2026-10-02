@@ -742,12 +742,12 @@ trait PrivateMatchMethods: TElement {
             context,
             old_values.as_deref(),
             new_values,
-            pseudo_element,
+            pseudo_element.clone(),
         ) || (!embedder_runs_animations &&
             old_values.as_deref().is_some_and(own_inputs_changed) &&
-            self.has_css_animations(context.shared, pseudo_element));
+            self.has_css_animations(context.shared, pseudo_element.clone()));
         // (A pseudo-element inherits from the style its element is taking now, which is its element's to look at.)
-        let parent = match pseudo_element {
+        let parent = match &pseudo_element {
             None => self
                 .inheritance_parent()
                 .and_then(|parent| parent.borrow_data().and_then(|data| data.styles.get_primary().cloned())),
@@ -758,7 +758,7 @@ trait PrivateMatchMethods: TElement {
             context,
             old_values.as_deref(),
             new_values,
-            pseudo_element,
+            pseudo_element.clone(),
         );
 
         let mut after_change_style = None;

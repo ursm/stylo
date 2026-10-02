@@ -115,6 +115,11 @@ impl CssUrl {
         }
     }
 
+    /// (csim) The URL as it was written, which CSSOM reports (`CSSImportRule.href`).
+    pub fn original(&self) -> Option<&str> {
+        self.original.as_ref().map(|s| s.as_str())
+    }
+
     /// Creates an already specified url value from an already resolved URL
     /// for insertion in the cascade.
     pub fn for_cascade(url: Arc<::url::Url>) -> Self {

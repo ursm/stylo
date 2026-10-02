@@ -719,7 +719,8 @@ impl<'a, 'i> AtRuleParser<'i> for NestedRuleParser<'a, 'i> {
             "font-face" => {
                 AtRulePrelude::FontFace
             },
-            "container" if cfg!(feature = "gecko") => {
+            // (csim: and `@container` — its size queries are answered as the embedder can, `TElement::query_container_size`)
+            "container" => {
                 let conditions = input.parse_comma_separated(|input| {
                     ContainerCondition::parse(&self.context, input)
                 })?;
@@ -744,7 +745,9 @@ impl<'a, 'i> AtRuleParser<'i> for NestedRuleParser<'a, 'i> {
                 let name = DashedIdent::parse(&self.context, input)?;
                 AtRulePrelude::FontPaletteValues(name)
             },
-            "counter-style" if cfg!(feature = "gecko") => {
+            // (csim: `@counter-style` and `@page` are rules of a Servo build's sheets too — a page reads them through
+            // CSSOM, and a sheet edited through it keeps them)
+            "counter-style" => {
                 let name = parse_counter_style_name_definition(input)?;
                 AtRulePrelude::CounterStyle(name)
             },
@@ -764,7 +767,7 @@ impl<'a, 'i> AtRuleParser<'i> for NestedRuleParser<'a, 'i> {
                 let name = KeyframesName::parse(&self.context, input)?;
                 AtRulePrelude::Keyframes(name, prefix)
             },
-            "page" if cfg!(feature = "gecko") => {
+            "page" => {
                 AtRulePrelude::Page(
                     input.try_parse(|i| PageSelectors::parse(&self.context, i)).unwrap_or_default()
                 )

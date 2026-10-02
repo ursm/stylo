@@ -369,7 +369,13 @@ impl NonCustomPropertyId {
     /// Whether this property is enabled for all content right now.
     #[inline]
     pub(super) fn enabled_for_all_content(self) -> bool {
-        static EXPERIMENTAL: NonCustomPropertyIdSet = ${non_custom_property_id_set(lambda p: p.experimental(engine))};
+        // (csim: a Servo build's switches are a build's, not a document's — `layout.unimplemented` turns on what
+        // Servo's layout lacks — so one turns on a property for content only where content may have it at all: a
+        // content property, or a feature Gecko turns on for content by a pref of its own. One that Gecko keeps to
+        // user-agent or chrome sheets whatever its prefs say stays theirs.)
+        static EXPERIMENTAL: NonCustomPropertyIdSet = ${non_custom_property_id_set(
+            lambda p: p.experimental(engine) and (engine == "gecko" or p.enabled_in_content() or bool(p.gecko_pref))
+        )};
         static ALWAYS_ENABLED: NonCustomPropertyIdSet = ${non_custom_property_id_set(
             lambda p: (not p.experimental(engine)) and p.enabled_in_content()
         )};

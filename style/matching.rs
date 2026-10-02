@@ -344,25 +344,27 @@ trait PrivateMatchMethods: TElement {
         return true;
     }
 
-    #[cfg(feature = "gecko")]
+    /// The style a transition starts from where the element has no before-change style, or comes out of
+    /// `display: none`: its starting style (`@starting-style`), where one applies. (csim: a Servo build's embedder that
+    /// runs the transitions itself starts them from it too.)
     fn maybe_resolve_starting_style(
         &self,
         context: &mut StyleContext<Self>,
         old_values: Option<&Arc<ComputedValues>>,
-        new_styles: &ResolvedElementStyles,
+        new_primary: &Arc<ComputedValues>,
     ) -> Option<Arc<ComputedValues>> {
         // For both cases:
         // If there is no transitions specified we don't have to resolve starting style.
-        let new_primary = new_styles.primary_style();
         if !new_primary.get_ui().specifies_transitions() {
             return None;
         }
 
         // We resolve starting style only if we don't have before-change-style, or we change from
         // display:none.
-        if old_values.is_some()
-            && !new_primary.is_display_property_changed_from_none(old_values.map(|s| &**s))
-        {
+        let from_none = old_values.is_some_and(|old| {
+            old.get_box().clone_display().is_none() && !new_primary.get_box().clone_display().is_none()
+        });
+        if old_values.is_some() && !from_none {
             return None;
         }
 
@@ -394,7 +396,7 @@ trait PrivateMatchMethods: TElement {
         old_values: Option<&Arc<ComputedValues>>,
         new_styles: &mut ResolvedElementStyles,
     ) -> Option<Arc<ComputedValues>> {
-        let starting_values = self.maybe_resolve_starting_style(context, old_values, new_styles);
+        let starting_values = self.maybe_resolve_starting_style(context, old_values, new_styles.primary_style());
         let before_change_or_starting = starting_values.as_ref().or(old_values);
         let new_values = new_styles.primary_style_mut();
 
@@ -754,9 +756,15 @@ trait PrivateMatchMethods: TElement {
             Some(_) => None,
         };
 
+        // (…from the element's starting style where it has no before-change style, or comes out of `display: none`)
+        let starting_values = match pseudo_element {
+            None if self.runs_css_animations() => self.maybe_resolve_starting_style(context, old_values.as_ref(), new_values),
+            _ => None,
+        };
+        let before_change_or_starting = starting_values.or_else(|| old_values.clone());
         let might_need_transitions_update = self.might_need_transitions_update(
             context,
-            old_values.as_deref(),
+            before_change_or_starting.as_deref(),
             new_values,
             pseudo_element.clone(),
         );
@@ -778,7 +786,7 @@ trait PrivateMatchMethods: TElement {
             }
             let (before_change_style, after_change_style) = if might_need_transitions_update {
                 tasks.insert(UpdateAnimationsTasks::CSS_TRANSITIONS);
-                (old_values.clone(), Some(after_change_style.unwrap_or_else(|| new_values.clone())))
+                (before_change_or_starting, Some(after_change_style.unwrap_or_else(|| new_values.clone())))
             } else {
                 (None, None)
             };

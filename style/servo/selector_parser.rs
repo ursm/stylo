@@ -45,19 +45,15 @@ pub enum PseudoElement {
     After = 0,
     Before,
     Selection,
-    // If/when :first-letter is added, update is_first_letter accordingly.
-
-    // If/when :first-line is added, update is_first_line accordingly.
-
-    // If/when ::first-letter or ::first-line are added, adjust our
-    // property_restriction implementation to do property filtering for them.
-    // Also, make sure the UA sheet has the !important rules some of the
+    // Make sure the UA sheet has the !important rules some of the
     // APPLIES_TO_PLACEHOLDER properties expect!
     FirstLetter,
 
     // Non-eager pseudos.
     Backdrop,
     DetailsContent,
+    // (csim) Parsed and computed on request, as `getComputedStyle(e, '::first-line')` asks; an embedder lays it out.
+    FirstLine,
     Marker,
 
     // Implemented pseudos. These pseudo elements are representing the
@@ -97,6 +93,7 @@ impl ToCss for PseudoElement {
             Before => "::before",
             Selection => "::selection",
             FirstLetter => "::first-letter",
+            FirstLine => "::first-line",
             Backdrop => "::backdrop",
             DetailsContent => "::details-content",
             Marker => "::marker",
@@ -203,7 +200,7 @@ impl PseudoElement {
     /// Whether the current pseudo element is :first-line
     #[inline]
     pub fn is_first_line(&self) -> bool {
-        false
+        *self == PseudoElement::FirstLine
     }
 
     /// Whether this pseudo-element is representing the color swatch
@@ -258,6 +255,7 @@ impl PseudoElement {
             | PseudoElement::FirstLetter
             | PseudoElement::Selection => PseudoElementCascadeType::Eager,
             PseudoElement::Backdrop
+            | PseudoElement::FirstLine
             | PseudoElement::ColorSwatch
             | PseudoElement::FileSelectorButton
             | PseudoElement::Marker
@@ -293,6 +291,7 @@ impl PseudoElement {
     pub fn property_restriction(&self) -> Option<PropertyFlags> {
         Some(match self {
             PseudoElement::FirstLetter => PropertyFlags::APPLIES_TO_FIRST_LETTER,
+            PseudoElement::FirstLine => PropertyFlags::APPLIES_TO_FIRST_LINE,
             PseudoElement::Marker if static_prefs::pref!("layout.css.marker.restricted") => {
                 PropertyFlags::APPLIES_TO_MARKER
             },
@@ -729,6 +728,7 @@ impl<'a, 'i> ::selectors::Parser<'i> for SelectorParser<'a> {
             "selection" => Selection,
             "file-selector-button" => FileSelectorButton,
             "first-letter" => FirstLetter,
+            "first-line" => FirstLine,
             "marker" => Marker,
             "details-content" => DetailsContent,
             "color-swatch" => ColorSwatch,
